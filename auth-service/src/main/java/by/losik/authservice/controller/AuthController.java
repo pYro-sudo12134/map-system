@@ -36,7 +36,7 @@ public class AuthController {
     private final UserMapper userMapper;
 
     @PostMapping("/login")
-    @Operation(summary = "Login user", description = "Create a new user account")
+    @Operation(summary = "Login user", description = "Login user")
     @RateLimiter(name = "loginEndpoint", fallbackMethod = "fallbackRateLimit")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
@@ -51,7 +51,7 @@ public class AuthController {
     }
 
     @PutMapping("/users/{id}")
-    @Operation(summary = "Update user", description = "Create a new user account")
+    @Operation(summary = "Update user", description = "Update user's credentials")
     @PreAuthorize("hasRole('ADMIN')")
     @RateLimiter(name = "authController", fallbackMethod = "fallbackRateLimit")
     public ResponseEntity<UserResponse> updateUser(
@@ -61,7 +61,7 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    @Operation(summary = "Get current user", description = "Create a new user account")
+    @Operation(summary = "Get current user", description = "Get information on current user")
     public ResponseEntity<UserResponse> getCurrentUser() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (principal instanceof UserEntity userEntity) {
@@ -71,7 +71,7 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    @Operation(summary = "Refresh user token", description = "Create a new user account")
+    @Operation(summary = "Refresh user token", description = "Refresh access token with refresh token")
     @RateLimiter(name = "authController", fallbackMethod = "fallbackRateLimit")
     public ResponseEntity<AuthResponse> refresh(@RequestHeader("Authorization") @NonNull String refreshToken) {
         return ResponseEntity.ok(authService.refreshToken(refreshToken.substring(7)));
