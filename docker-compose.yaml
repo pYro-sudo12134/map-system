@@ -1,0 +1,82 @@
+version: '3.8' # for testing purposes only
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    command: serve
+
+  opensearch:
+    image: opensearchproject/opensearch:latest
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:latest
+    ports:
+      - "5601:5601"
+    environment:
+      - OPENSEARCH_HOSTS=http://opensearch:9200
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    depends_on:
+      - opensearch
+
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sqs,sns
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+    healthcheck:
+      test: ["CMD", "awslocal", "sqs", "list-queues"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rag-agent:
+    build: ./rag-agent
+    depends_on:
+      opensearch:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - OLLAMA_URL=http://ollama:11434
+      - OPENSEARCH_URL=http://opensearch:9200
+      - OPENSEARCH_INDEX=rag_queries
+      - QUEUE_RAG_URL=http://localstack:4566/000000000000/SQS_RAG
+      - QUEUE_GO_URL=http://localstack:4566/000000000000/SQS_GO
+      - DLQ_URL=http://localstack:4566/000000000000/DLQ
+      - SIMILARITY_THRESHOLD=0.85
+    volumes:
+      - ./rag-agent:/app
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  opensearch_data:
+  localstack_data:

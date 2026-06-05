@@ -38,3 +38,21 @@ settings.gradle
 
 ### VS Code ###
 .vscode/
+rag-agent/venv
+localstack
+
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.env
+*.so
+*.egg
+*.egg-info/
+dist/
