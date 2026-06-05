@@ -1,0 +1,56 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${AUTH_DB:ism_auth}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-init-sql: CREATE SCHEMA IF NOT EXISTS ${AUTH_SERVICE_SCHEMA:auth}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: ${AUTH_SERVICE_SCHEMA:auth}
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
+    default-schema: ${AUTH_SERVICE_SCHEMA:auth}
+
+jwt:
+  secret: ${JWT_SECRET:very-super-secret-password-like-yo}
+  expiration: ${JWT_EXPIRATION:86400000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+
+logging:
+  level:
+    by.losik: ${LOGGING_LEVEL_AUTH:DEBUG}
+    org.springframework.security: ${SPRING_SECURITY_LEVEL:DEBUG}
+
+resilience4j:
+  ratelimiter:
+    instances:
+      authController:
+        limitForPeriod: 100
+        limitRefreshPeriod: 1m
+        timeoutDuration: 5s
+        registerHealthIndicator: true
+      loginEndpoint:
+        limitForPeriod: 100
+        limitRefreshPeriod: 1m
+        timeoutDuration: 5s
+        registerHealthIndicator: true
+    configs:
+      default:
+        limitForPeriod: 20
+        limitRefreshPeriod: 1m
+        timeoutDuration: 5s
+        registerHealthIndicator: true
