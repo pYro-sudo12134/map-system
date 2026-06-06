@@ -1,5 +1,7 @@
 /gradlew text eol=lf
 *.bat text eol=crlf
+*.sh text eol=lf
 *.jar binary
 .gitignore text eol=lf
 .gitattributes text eol=lf
+*.go eol=lf
