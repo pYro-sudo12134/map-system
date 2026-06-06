@@ -39,7 +39,7 @@ class StoredQuery(BaseModel):
     text: str
     text_vector: Optional[list[float]] = None
     parsed_query: Dict[str, Any]
+    language: str
     success: bool = True
     user_feedback: Optional[bool] = None
-    language: str
     created_at: datetime = Field(default_factory=datetime.utcnow)

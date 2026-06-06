@@ -40,7 +40,7 @@ class OpenSearchClient:
                             "method": {
                                 "name": "hnsw",
                                 "space_type": "cosinesimil",
-                                "engine": "lucene",
+                                "engine": "nmslib",
                                 "parameters": {
                                     "ef_construction": 128,
                                     "m": 24
@@ -50,9 +50,9 @@ class OpenSearchClient:
                         "text": {"type": "text"},
                         "request_id": {"type": "keyword"},
                         "parsed_query": {"type": "object"},
+                        "language": {"type": "keyword"},
                         "success": {"type": "boolean"},
                         "user_feedback": {"type": "boolean"},
-                        "language": {"type": "keyword"},
                         "created_at": {"type": "date"}
                     }
                 }
@@ -60,7 +60,7 @@ class OpenSearchClient:
             self.client.indices.create(index=self.index_name, body=index_settings)
             logger.info(f"Created index {self.index_name} with KNN")
 
-    def find_similar(self, text: str, threshold: float = None) -> Optional[Dict[str, Any]]:
+    def find_similar(self, text: str, language: str, threshold: float = None) -> Optional[Dict[str, Any]]:
         if threshold is None:
             threshold = settings.similarity_threshold
 
@@ -69,14 +69,23 @@ class OpenSearchClient:
         knn_query = {
             "size": 1,
             "query": {
-                "knn": {
-                    "text_vector": {
-                        "vector": vector,
-                        "k": 1
-                    }
+                "bool": {
+                    "must": [
+                        {
+                            "knn": {
+                                "text_vector": {
+                                    "vector": vector,
+                                    "k": 5
+                                }
+                            }
+                        },
+                        {
+                            "term": {"language": language}
+                        }
+                    ]
                 }
             },
-            "_source": ["text", "parsed_query", "success", "user_feedback"]
+            "_source": ["text", "parsed_query", "success", "user_feedback", "language"]
         }
 
         try:
@@ -88,12 +97,13 @@ class OpenSearchClient:
                 score = hit.get("_score", 0)
 
                 if score >= threshold:
-                    logger.info(f"Found similar query. Score: {score}")
+                    logger.info(f"Found similar query. Score: {score}, Language: {language}")
                     source = hit.get("_source", {})
                     return {
                         "text": source.get("text"),
                         "parsed_query": source.get("parsed_query"),
-                        "score": score
+                        "score": score,
+                        "language": source.get("language")
                     }
             return None
         except Exception as e:
@@ -113,7 +123,7 @@ class OpenSearchClient:
                 body=doc,
                 refresh=True
             )
-            logger.info(f"Query saved: {stored.request_id}")
+            logger.info(f"Query saved: {stored.request_id}, Language: {stored.language}")
             return True
         except Exception as e:
             logger.error(f"Failed to save query: {e}")

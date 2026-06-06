@@ -46,7 +46,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
     volumes:
       - localstack_data:/var/lib/localstack
-      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - ./localstack:/etc/localstack/init/ready.d
     healthcheck:
       test: ["CMD", "awslocal", "sqs", "list-queues"]
       interval: 10s
