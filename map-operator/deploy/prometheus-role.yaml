@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sqs-scaling
+  namespace: openfaas
+spec:
+  groups:
+    - name: sqs.rules
+      rules:
+        - alert: SQSQueueTooLong
+          expr: sqs_queue_length{queue_name="SQS_GO"} > 10
+          for: 30s
+          labels:
+            severity: warning
+          annotations:
+            summary: "SQS queue too long ({{ $value }} messages)"

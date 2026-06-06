@@ -60,7 +60,9 @@ dist/
 
 # GO
 *.sum
+**/template
 
 # General
 *.exe
 handler
+*.txt

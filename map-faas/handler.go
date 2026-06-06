@@ -105,11 +105,6 @@ func Handle(ctx context.Context, req []byte) (string, error) {
 
 func executeQuery(ctx context.Context, queryType string, params map[string]interface{}) (interface{}, error) {
 	session := neo4jDriver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
-	defer func() {
-		if err := session.Close(ctx); err != nil {
-			log.Printf("Failed to close Neo4j session: %v", err)
-		}
-	}()
 
 	var cypher string
 

@@ -1,0 +1,28 @@
+version: 1.0
+
+provider:
+  name: openfaas
+  gateway: http://localhost:8089
+
+functions:
+  faas-m:
+    lang: dockerfile
+    handler: ../../map-faas
+    image: pyrodocker1/faas-m:0.1
+    platform: linux/amd64
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: test1234
+      SNS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:ISM_Topic
+      AWS_ENDPOINT_URL: http://localhost:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    labels:
+      faas_function: faas-m
+    annotations:
+      prometheus.io.scrape: "true"
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 128Mi
