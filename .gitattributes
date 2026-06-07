@@ -2,6 +2,7 @@
 *.bat text eol=crlf
 *.sh text eol=lf
 *.jar binary
+*.java eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf
 *.go eol=lf

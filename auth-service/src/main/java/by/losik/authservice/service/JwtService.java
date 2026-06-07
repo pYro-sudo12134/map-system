@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.NonNull;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +28,7 @@ public class JwtService {
     @Value("${jwt.refresh-expiration}")
     private Long refreshExpiration;
 
-    private SecretKey getSigningKey() {
+    private @NonNull SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -35,7 +36,7 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
     }
 
-    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+    public <T> T extractClaim(String token, @NonNull Function<Claims, T> claimsResolver) {
         Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
@@ -56,7 +57,7 @@ public class JwtService {
         return generateToken(new HashMap<>(), userDetails, refreshExpiration);
     }
 
-    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails, Long expirationTime) {
+    public @NonNull String generateToken(@NonNull Map<String, Object> extraClaims, @NonNull UserDetails userDetails, Long expirationTime) {
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())
                 .claims(extraClaims)
@@ -68,7 +69,7 @@ public class JwtService {
                 .compact();
     }
 
-    public boolean isTokenValid(String token, UserDetails userDetails) {
+    public boolean isTokenValid(@NonNull String token, @NonNull UserDetails userDetails) {
         String username = extractUsername(token);
         return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }

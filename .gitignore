@@ -28,7 +28,6 @@ out/
 gradle
 gradlew.bat
 gradlew
-settings.gradle
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/

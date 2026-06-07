@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: java-router
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 5
+          min-idle: 2
+
+server:
+  port: 8082
+
+logging:
+  level:
+    by.losik: DEBUG
+    org.springframework.web: DEBUG
+    org.apache.camel: DEBUG
+    org.apache.camel.component.servlet: DEBUG
+
+jwt:
+  secret: ${JWT_SECRET:defaultSecretKeyForDevOnly}
+
+aws:
+  region: ${AWS_REGION:us-east-1}
+  secret-key: ${AWS_SECRET_KEY:test}
+  access-key: ${AWS_ACCESS_KEY:test}
+  endpoint: ${AWS_ENDPOINT_URL:http://localhost:4566}
+  s3:
+    bucket: ${AWS_S3_BUCKET:voice-records}
+  sqs:
+    rag:
+      name: ${SQS_RAG_NAME:SQS_RAG}
+    results:
+      name: ${SQS_RESULTS_NAME:SQS_RESULTS}
+    sync:
+      name: ${SQS_SYNC_NAME:SQS_SYNC}
+
+camel:
+  servlet:
+    mapping:
+      context-path: /api/*
+  component:
+    aws2-sqs:
+      access-key: ${aws.access-key}
+      secret-key: ${aws.secret-key}
+      region: ${aws.region}
+      override-endpoint: true
+      uri-endpoint-override: ${aws.endpoint}
+    aws2-s3:
+      access-key: ${aws.access-key}
+      secret-key: ${aws.secret-key}
+      region: ${aws.region}
+      override-endpoint: true
+      uri-endpoint-override: ${aws.endpoint}
+    aws2-transcribe:
+      access-key: ${aws.access-key}
+      secret-key: ${aws.secret-key}
+      region: ${aws.region}
+      override-endpoint: true
+      uri-endpoint-override: ${aws.endpoint}
