@@ -1,0 +1,62 @@
+version: '3.8' # for testing purposes only
+
+services:
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,sqs,transcribe
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+    healthcheck:
+      test: ["CMD", "awslocal", "sqs", "list-queues"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  java-router:
+    build: .
+    container_name: java-router
+    ports:
+      - "8091:8082"
+    depends_on:
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - AWS_ACCESS_KEY=test
+      - AWS_SECRET_KEY=test
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - SQS_RAG_NAME=SQS_RAG
+      - SQS_RESULTS_NAME=SQS_RESULTS
+      - SQS_SYNC_NAME=SQS_SYNC
+      - AWS_S3_BUCKET=voice-records
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - JWT_SECRET=testSecretKeyForDevOnly12345678901234567890
+      - LOGGING_LEVEL_BY_LOSIK=DEBUG
+      - LOGGING_CAMEL_LEVEL=DEBUG
+
+volumes:
+  localstack_data:

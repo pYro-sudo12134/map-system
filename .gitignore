@@ -65,3 +65,5 @@ dist/
 *.exe
 handler
 *.txt
+*.conf
+*.env

@@ -27,6 +27,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
     implementation "org.apache.camel.springboot:camel-aws2-transcribe-starter:${camelVersion}"
     implementation "org.apache.camel.springboot:camel-spring-boot-starter:${camelVersion}"

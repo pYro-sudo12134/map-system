@@ -3,6 +3,7 @@
 *.sh text eol=lf
 *.jar binary
 *.java eol=lf
+*.gradle eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf
 *.go eol=lf

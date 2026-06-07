@@ -6,7 +6,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD}
+      password: ${REDIS_PASSWORD:}
       timeout: 2000ms
       lettuce:
         pool:
@@ -17,12 +17,34 @@ spring:
 server:
   port: 8082
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    redis:
+      enabled: true
+    defaults:
+      enabled: true
+
+info:
+  app:
+    name: Map Router
+    version: 0.0.1
+
 logging:
   level:
-    by.losik: DEBUG
-    org.springframework.web: DEBUG
-    org.apache.camel: DEBUG
-    org.apache.camel.component.servlet: DEBUG
+    by.losik: INFO
+    org.springframework.web: INFO
+    org.apache.camel: INFO
+    org.apache.camel.component.servlet: INFO
 
 jwt:
   secret: ${JWT_SECRET:defaultSecretKeyForDevOnly}
@@ -54,6 +76,7 @@ camel:
       override-endpoint: true
       uri-endpoint-override: ${aws.endpoint}
     aws2-s3:
+      force-path-style: true
       access-key: ${aws.access-key}
       secret-key: ${aws.secret-key}
       region: ${aws.region}
