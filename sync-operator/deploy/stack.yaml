@@ -17,6 +17,8 @@ functions:
       OPENSEARCH_URL: http://opensearch:9200
       OPENSEARCH_USER: admin
       OPENSEARCH_PASSWORD: admin
+      OPENSEARCH_NODES_INDEX: nodes
+      OPENSEARCH_EDGES_INDEX: edges
       SQS_SYNC_RESULTS_URL: https://localhost:4566/000000000000/SQS_SYNC_RESULTS
       AWS_ENDPOINT_URL: http://localhost:4566
       AWS_ACCESS_KEY_ID: test

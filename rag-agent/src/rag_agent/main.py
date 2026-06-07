@@ -53,7 +53,8 @@ async def process_message(message: dict) -> bool:
 
         sqs_client.send_result(
             request_id=request.request_id,
-            parsed_query=parsed_query.model_dump()
+            parsed_query=parsed_query.model_dump(),
+            user_location=request.user_location
         )
 
         logger.info(f"Attempting to delete with handle: {message['ReceiptHandle'][:100]}...")

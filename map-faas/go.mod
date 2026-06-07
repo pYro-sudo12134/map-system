@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.26.6
 	github.com/aws/aws-sdk-go-v2/service/sns v1.40.0
 	github.com/neo4j/neo4j-go-driver/v5 v5.16.0
+	github.com/opensearch-project/opensearch-go/v2 v2.3.0
 )
 
 require (

@@ -18,6 +18,10 @@ functions:
       AWS_ENDPOINT_URL: http://localhost:4566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
+      OPENSEARCH_URL: http://localhost:9200
+      OPENSEARCH_USER: admin
+      OPENSEARCH_PASSWORD: admin
+      OPENSEARCH_NODES_INDEX: nodes
     labels:
       faas_function: faas-m
     annotations:

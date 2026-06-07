@@ -133,21 +133,29 @@ public class MainRoute extends RouteBuilder {
     @SuppressWarnings("unchecked")
     private void prepareRequest(@NonNull Exchange exchange) throws Exception {
         String body = exchange.getIn().getBody(String.class);
+        @SuppressWarnings("unchecked")
         Map<String, Object> request = objectMapper.readValue(body, Map.class);
 
         String userId = exchange.getProperty(USER_ID, String.class);
         String requestId = redisService.generateRequestId();
 
-        Object textObj = request.get("text");
-        Object voiceObj = request.get("voice");
-
-        String text = textObj != null ? textObj.toString() : null;
-        String voice = voiceObj != null ? voiceObj.toString() : null;
-        String language = Optional.ofNullable((String) request.get("language")).orElse("ru");
+        String text = (String) request.get("text");
+        String voice = (String) request.get("voice");
+        String language = (String) request.getOrDefault("language", "ru");
 
         exchange.setProperty(REQUEST_ID, requestId);
         exchange.setProperty(USER_ID, userId);
         exchange.setProperty(LANGUAGE, language);
+
+        Double lat = exchange.getIn().getHeader("X-Lat", Double.class);
+        Double lon = exchange.getIn().getHeader("X-Lon", Double.class);
+
+        Map<String, Double> userLocation = null;
+        if (lat != null && lon != null) {
+            userLocation = Map.of("lat", lat, "lon", lon);
+            exchange.setProperty("userLocation", userLocation);
+            log.debug("User location from headers: lat={}, lon={}", lat, lon);
+        }
 
         boolean hasVoice = voice != null && !voice.isEmpty();
         boolean hasText = text != null && !text.isEmpty();
@@ -166,6 +174,14 @@ public class MainRoute extends RouteBuilder {
             sqsMessage.put("text", text);
             sqsMessage.put("user_id", userId);
             sqsMessage.put("language", language);
+
+            Optional.ofNullable(userLocation).ifPresent(loc -> {
+                JsonObject location = new JsonObject();
+                location.put("lat", loc.get("lat"));
+                location.put("lon", loc.get("lon"));
+                sqsMessage.put("user_location", location);
+            });
+
             exchange.getMessage().setBody(sqsMessage);
         } else {
             throw new IllegalArgumentException("Exactly one of 'text' or 'voice' must be provided, not both or none");
@@ -190,6 +206,9 @@ public class MainRoute extends RouteBuilder {
         String userId = exchange.getProperty(USER_ID, String.class);
         String language = exchange.getProperty(LANGUAGE, String.class);
 
+        @SuppressWarnings("unchecked")
+        Map<String, Double> userLocation = exchange.getProperty("userLocation", Map.class);
+
         if (exchange.getProperty("skipTranscribe") == null) {
             redisService.savePending(requestId);
         }
@@ -205,6 +224,14 @@ public class MainRoute extends RouteBuilder {
         sqsMessage.put("text", transcriptText);
         sqsMessage.put("user_id", userId);
         sqsMessage.put("language", language);
+
+        Optional.ofNullable(userLocation).ifPresent(userLocationExchange -> {
+            JsonObject location = new JsonObject();
+            location.put("lat", userLocation.get("lat"));
+            location.put("lon", userLocation.get("lon"));
+            sqsMessage.put("user_location", location);
+        });
+
         exchange.getMessage().setBody(sqsMessage);
     }
 

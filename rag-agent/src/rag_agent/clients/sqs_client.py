@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any
 from botocore.config import Config
 from botocore.exceptions import ClientError
 from ..config import settings
-from ..models import RagRequest
+from ..models import RagRequest, UserLocation
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +69,14 @@ class SQSClient:
         except ClientError as e:
             logger.error(f"Failed to send to DLQ: {e}")
 
-    def send_result(self, request_id: str, parsed_query: Dict[str, Any]):
+    def send_result(self, request_id: str, parsed_query: Dict[str, Any], user_location: Optional[UserLocation] = None):
         message = {
             'request_id': request_id,
             'parsed_query': parsed_query
         }
+        if user_location:
+            message['user_location'] = user_location.dict()
+
         try:
             response = self.sqs.send_message(
                 QueueUrl=self.queue_go_url,
@@ -88,11 +91,20 @@ class SQSClient:
     def parse_message(self, message: Dict) -> Optional[RagRequest]:
         try:
             body = json.loads(message['Body'])
+
+            user_location = None
+            if body.get('user_location'):
+                user_location = UserLocation(
+                    lat=body['user_location'].get('lat'),
+                    lon=body['user_location'].get('lon')
+                )
+
             return RagRequest(
                 request_id=body.get('request_id'),
                 text=body.get('text'),
                 user_id=body.get('user_id'),
-                language=body.get('language', 'ru')
+                language=body.get('language', 'ru'),
+                user_location=user_location
             )
         except (json.JSONDecodeError, KeyError) as e:
             logger.error(f"Failed to parse message: {e}")

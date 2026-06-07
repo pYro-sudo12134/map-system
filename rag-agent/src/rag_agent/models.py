@@ -18,11 +18,17 @@ class QueryParams(BaseModel):
     params: Dict[str, Any] = Field(default_factory=dict)
 
 
+class UserLocation(BaseModel):
+    lat: float
+    lon: float
+
+
 class RagRequest(BaseModel):
     request_id: str
     text: str
     user_id: Optional[str] = None
     language: str = "ru"
+    user_location: Optional[UserLocation] = None
 
 
 class RagResponse(BaseModel):

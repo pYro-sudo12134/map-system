@@ -44,6 +44,8 @@ var (
 	osClient    *opensearch.Client
 	sqsClient   *sqs.Client
 	queueURL    string
+	nodesIndex  string
+	edgesIndex  string
 )
 
 func init() {
@@ -78,6 +80,18 @@ func init() {
 
 	sqsClient = sqs.NewFromConfig(cfg)
 	queueURL = os.Getenv("SQS_SYNC_RESULTS_URL")
+
+	nodesIndex = os.Getenv("OPENSEARCH_NODES_INDEX")
+	if nodesIndex == "" {
+		nodesIndex = "nodes"
+		log.Printf("OPENSEARCH_NODES_INDEX not set, using default: %s", nodesIndex)
+	}
+
+	edgesIndex = os.Getenv("OPENSEARCH_EDGES_INDEX")
+	if edgesIndex == "" {
+		edgesIndex = "edges"
+		log.Printf("OPENSEARCH_EDGES_INDEX not set, using default: %s", edgesIndex)
+	}
 }
 
 func Handle(ctx context.Context, req []byte) (string, error) {
@@ -257,14 +271,25 @@ func bulkIndexNodes(ctx context.Context, nodes []Node) error {
 
 	var buf bytes.Buffer
 	for _, node := range nodes {
-		body, _ := json.Marshal(node)
+		doc := map[string]interface{}{
+			"id":       node.ID,
+			"name":     node.Name,
+			"lat":      node.Lat,
+			"lon":      node.Lon,
+			"type":     node.Type,
+			"location": map[string]float64{"lat": node.Lat, "lon": node.Lon},
+		}
+		body, err := json.Marshal(doc)
+		if err != nil {
+			return err
+		}
 		buf.WriteString(fmt.Sprintf(`{ "index" : { "_id" : "%s" } }%s`, node.ID, "\n"))
 		buf.Write(body)
 		buf.WriteString("\n")
 	}
 
 	res, err := osClient.Bulk(bytes.NewReader(buf.Bytes()),
-		osClient.Bulk.WithIndex("nodes"),
+		osClient.Bulk.WithIndex(nodesIndex),
 		osClient.Bulk.WithContext(ctx),
 	)
 	if err != nil {
@@ -296,7 +321,7 @@ func bulkIndexEdges(ctx context.Context, edges []Edge) error {
 	}
 
 	res, err := osClient.Bulk(bytes.NewReader(buf.Bytes()),
-		osClient.Bulk.WithIndex("edges"),
+		osClient.Bulk.WithIndex(edgesIndex),
 		osClient.Bulk.WithContext(ctx),
 	)
 	if err != nil {
