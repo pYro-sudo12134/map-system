@@ -1,5 +1,5 @@
 FROM ghcr.io/openfaas/of-watchdog:0.9.11 AS watchdog
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -8,15 +8,14 @@ RUN go mod download
 
 COPY *.go ./
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -o handler.so .
+RUN CGO_ENABLED=0 GOOS=linux go build -o handler .
 
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates tzdata
 
 COPY --from=watchdog /fwatchdog /usr/bin/fwatchdog
-COPY --from=builder /app/handler.so /handler
+COPY --from=builder /app/handler /handler
 
 RUN chmod +x /handler /usr/bin/fwatchdog
 

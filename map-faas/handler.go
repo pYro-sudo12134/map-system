@@ -1,11 +1,10 @@
-package function
+package main
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/opensearch-project/opensearch-go/v2"
 	"io"
 	"log"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/opensearch-project/opensearch-go/v2"
 )
 
 type Request struct {

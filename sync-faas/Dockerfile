@@ -1,14 +1,14 @@
 FROM ghcr.io/openfaas/of-watchdog:0.9.11 AS watchdog
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY . .
+COPY *.go ./
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+RUN CGO_ENABLED=0 GOOS=linux go build \
     -o handler \
     .
 
