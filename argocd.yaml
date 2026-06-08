@@ -1,0 +1,47 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ism-system
+  namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: |
+      auth-service=docker.io/pyrodocker1/auth-service,
+      map-router=docker.io/pyrodocker1/map-router,
+      rag-agent=docker.io/pyrodocker1/rag-agent,
+      map-operator=docker.io/pyrodocker1/map-operator,
+      sync-operator=docker.io/pyrodocker1/sync-operator
+
+    argocd-image-updater.argoproj.io/auth-service.update-strategy: digest
+    argocd-image-updater.argoproj.io/java-router.update-strategy: digest
+    argocd-image-updater.argoproj.io/rag-agent.update-strategy: digest
+    argocd-image-updater.argoproj.io/map-operator.update-strategy: digest
+    argocd-image-updater.argoproj.io/sync-operator.update-strategy: digest
+    argocd-image-updater.argoproj.io/update-interval: 5m
+
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-username/map-system  # !!!!
+    targetRevision: master
+    path: .
+    kustomize:
+      commonAnnotations:
+        version: "latest" # !!!!
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ism-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+
+#  kubectl -n argocd create secret generic github-app \
+#  --type=argocd.argoproj.io/github-app \
+#  --from-literal=appID=123456 \
+#  --from-literal=installationID=654321 \
+#  --from-file=privateKey=/path/to/private-key.pem
+
+#  kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
