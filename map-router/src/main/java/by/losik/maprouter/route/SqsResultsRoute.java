@@ -24,6 +24,27 @@ public class SqsResultsRoute extends RouteBuilder {
     @Value("${aws.sqs.results.name}")
     private String resultsQueueName;
 
+    @Value("${rate.limit.sqs-consumer.max-requests:30}")
+    private int sqsConsumerMaxRequests;
+
+    @Value("${rate.limit.sqs-consumer.time-period-ms:1000}")
+    private int sqsConsumerTimePeriodMs;
+
+    @Value("${resilience4j.circuitbreaker.instances.sqs-processor.failure-rate-threshold:40}")
+    private float failureRateThreshold;
+
+    @Value("${resilience4j.circuitbreaker.instances.sqs-processor.sliding-window-size:20}")
+    private int slidingWindowSize;
+
+    @Value("${resilience4j.circuitbreaker.instances.sqs-processor.minimum-number-of-calls:10}")
+    private int minimumNumberOfCalls;
+
+    @Value("${resilience4j.circuitbreaker.instances.sqs-processor.wait-duration-in-open-state:60000}")
+    private int waitDurationInOpenState;
+
+    @Value("${resilience4j.circuitbreaker.instances.sqs-processor.permitted-number-of-calls-in-half-open-state:5}")
+    private int permittedNumberOfCallsInHalfOpenState;
+
     @Override
     public void configure() {
         onException(Exception.class)
@@ -39,6 +60,19 @@ public class SqsResultsRoute extends RouteBuilder {
 
         from("aws2-sqs:%s?deleteAfterRead=true".formatted(resultsQueueName))
                 .routeId("sqs-results-consumer")
+                .throttle(sqsConsumerMaxRequests)
+                .timePeriodMillis(sqsConsumerTimePeriodMs)
+                .asyncDelayed()
+                .circuitBreaker()
+                .resilience4jConfiguration()
+                .failureRateThreshold(failureRateThreshold)
+                .slidingWindowSize(slidingWindowSize)
+                .minimumNumberOfCalls(minimumNumberOfCalls)
+                .waitDurationInOpenState(waitDurationInOpenState)
+                .permittedNumberOfCallsInHalfOpenState(permittedNumberOfCallsInHalfOpenState)
+                .timeoutEnabled(true)
+                .timeoutDuration(5000)
+                .end()
                 .process(exchange -> {
                     String body = exchange.getIn().getBody(String.class);
                     log.debug("Received SQS message: {}", body);
@@ -56,23 +90,41 @@ public class SqsResultsRoute extends RouteBuilder {
                         log.error("Failed to parse SQS message: {}", body, e);
                         throw new RuntimeException("Failed to parse SQS message", e);
                     }
-                });
+                })
+                .onFallback()
+                .process(exchange -> {
+                    Exception cause = exchange.getProperty(Exchange.EXCEPTION_CAUGHT, Exception.class);
+                    String body = exchange.getIn().getBody(String.class);
+
+                    log.error("Circuit breaker fallback for SQS message: {}, cause: {}",
+                            body, cause != null ? cause.getMessage() : "unknown");
+
+                    exchange.getMessage().setHeader("CamelAwsSqsDelay", 30000);
+                    exchange.getMessage().setBody(body);
+
+                    exchange.getMessage().setHeader("CamelAwsSqsDeleteAfterRead", false);
+                })
+                .end();
     }
 
     private void processResult(String requestId, @NonNull Map<String, Object> result) {
-        if (result.containsKey("error") && result.get("error") != null) {
-            String error = (String) result.get("error");
-            redisService.saveError(requestId, error);
-            log.warn("Error result for request {}: {}", requestId, error);
-        } else {
-            Object responseResult = result.get("result");
-            if (responseResult != null) {
-                redisService.saveResult(requestId, responseResult);
-                log.info("Saved result for request: {}", requestId);
+        try {
+            if (result.containsKey("error") && result.get("error") != null) {
+                String error = (String) result.get("error");
+                redisService.saveError(requestId, error);
+                log.warn("Error result for request {}: {}", requestId, error);
             } else {
-                log.warn("Result without data for request: {}", requestId);
-                redisService.saveError(requestId, "Empty result from FaaS");
+                Object responseResult = result.get("result");
+                if (responseResult != null) {
+                    redisService.saveResult(requestId, responseResult);
+                    log.info("Saved result for request: {}", requestId);
+                } else {
+                    log.warn("Result without data for request: {}", requestId);
+                    redisService.saveError(requestId, "Empty result from FaaS");
+                }
             }
+        } catch (Exception e) {
+            log.error("Failed to save result for request {}: {}", requestId, e.getMessage(), e);
         }
     }
 }

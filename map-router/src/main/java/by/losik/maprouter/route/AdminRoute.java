@@ -21,6 +21,24 @@ public class AdminRoute extends RouteBuilder {
     @Value("${aws.sqs.sync.name}")
     private String syncQueueName;
 
+    @Value("${rate.limit.admin.full-sync.max-requests:2}")
+    private int fullSyncMaxRequests;
+
+    @Value("${rate.limit.admin.full-sync.time-period-ms:60000}")
+    private int fullSyncTimePeriodMs;
+
+    @Value("${rate.limit.admin.nodes-sync.max-requests:10}")
+    private int nodesSyncMaxRequests;
+
+    @Value("${rate.limit.admin.nodes-sync.time-period-ms:60000}")
+    private int nodesSyncTimePeriodMs;
+
+    @Value("${rate.limit.admin.edges-sync.max-requests:10}")
+    private int edgesSyncMaxRequests;
+
+    @Value("${rate.limit.admin.edges-sync.time-period-ms:60000}")
+    private int edgesSyncTimePeriodMs;
+
     @Override
     public void configure() {
         onException(UnauthorizedException.class)
@@ -53,6 +71,9 @@ public class AdminRoute extends RouteBuilder {
         from("servlet:/v1/admin/sync/full?httpMethodRestrict=POST")
                 .routeId("admin-full-sync")
                 .process(adminAuthProcessor)
+                .throttle(fullSyncMaxRequests)
+                .timePeriodMillis(fullSyncTimePeriodMs)
+                .asyncDelayed()
                 .setBody(constant("{\"sync_type\":\"full\"}"))
                 .setHeader(Exchange.CONTENT_TYPE, constant("application/json"))
                 .to("aws2-sqs:%s".formatted(syncQueueName))
@@ -65,6 +86,9 @@ public class AdminRoute extends RouteBuilder {
         from("servlet:/v1/admin/sync/nodes?httpMethodRestrict=POST")
                 .routeId("admin-nodes-sync")
                 .process(adminAuthProcessor)
+                .throttle(nodesSyncMaxRequests)
+                .timePeriodMillis(nodesSyncTimePeriodMs)
+                .asyncDelayed()
                 .setBody(constant("{\"sync_type\":\"nodes\"}"))
                 .setHeader(Exchange.CONTENT_TYPE, constant("application/json"))
                 .to("aws2-sqs:%s".formatted(syncQueueName))
@@ -77,6 +101,9 @@ public class AdminRoute extends RouteBuilder {
         from("servlet:/v1/admin/sync/edges?httpMethodRestrict=POST")
                 .routeId("admin-edges-sync")
                 .process(adminAuthProcessor)
+                .throttle(edgesSyncMaxRequests)
+                .timePeriodMillis(edgesSyncTimePeriodMs)
+                .asyncDelayed()
                 .setBody(constant("{\"sync_type\":\"edges\"}"))
                 .setHeader(Exchange.CONTENT_TYPE, constant("application/json"))
                 .to("aws2-sqs:%s".formatted(syncQueueName))

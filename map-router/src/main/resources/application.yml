@@ -21,13 +21,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus,metrics,circuitbreakers
       base-path: /actuator
   endpoint:
     health:
       show-details: always
       probes:
         enabled: true
+    metrics:
+      cache:
+        time-to-live: 10s
   health:
     redis:
       enabled: true
@@ -41,10 +44,10 @@ info:
 
 logging:
   level:
-    by.losik: INFO
-    org.springframework.web: INFO
-    org.apache.camel: INFO
-    org.apache.camel.component.servlet: INFO
+    by.losik: DEBUG
+    org.springframework.web: DEBUG
+    org.apache.camel: DEBUG
+    org.apache.camel.component.servlet: DEBUG
 
 jwt:
   secret: ${JWT_SECRET:defaultSecretKeyForDevOnly}
@@ -63,6 +66,54 @@ aws:
       name: ${SQS_RESULTS_NAME:SQS_RESULTS}
     sync:
       name: ${SQS_SYNC_NAME:SQS_SYNC}
+
+rate:
+  limit:
+    admin:
+      full-sync:
+        max-requests: 1000
+        time-period-ms: 60000
+      nodes-sync:
+        max-requests: 1000
+        time-period-ms: 60000
+      edges-sync:
+        max-requests: 1000
+        time-period-ms: 60000
+    sqs-consumer:
+      max-requests: 300
+      time-period-ms: 1000
+    user:
+      global:
+        max-requests: 200
+        time-period-ms: 1000
+      get-result:
+        max-requests: 100
+        time-period-ms: 1000
+      per-user:
+        max-requests: 200
+        time-period-ms: 1000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      sqs-processor:
+        failure-rate-threshold: 40
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        wait-duration-in-open-state: 60000
+        permitted-number-of-calls-in-half-open-state: 5
+      transcribe:
+        failure-rate-threshold: 50
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        wait-duration-in-open-state: 30000
+        permitted-number-of-calls-in-half-open-state: 3
+      s3-upload:
+        failure-rate-threshold: 40
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        wait-duration-in-open-state: 15000
+
 
 camel:
   servlet:

@@ -8,3 +8,5 @@
 .gitattributes text eol=lf
 *.go eol=lf
 *.mod eol=lf
+*.yaml eol=lf
+*.yml eol=lf

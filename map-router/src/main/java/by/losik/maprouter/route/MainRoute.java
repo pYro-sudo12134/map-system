@@ -4,6 +4,7 @@ import by.losik.maprouter.exception.UnauthorizedException;
 import by.losik.maprouter.processor.JwtAuthProcessor;
 import by.losik.maprouter.service.RedisService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.camel.Exchange;
@@ -33,6 +34,51 @@ public class MainRoute extends RouteBuilder {
     @Value("${aws.sqs.rag.name}")
     private String ragQueueName;
 
+    @Value("${rate.limit.user.global.max-requests:200}")
+    private int globalMaxRequests;
+
+    @Value("${rate.limit.user.global.time-period-ms:1000}")
+    private int globalTimePeriodMs;
+
+    @Value("${rate.limit.user.get-result.max-requests:100}")
+    private int getResultMaxRequests;
+
+    @Value("${rate.limit.user.get-result.time-period-ms:1000}")
+    private int getResultTimePeriodMs;
+
+    @Value("${rate.limit.user.per-user.max-requests:20}")
+    private int perUserMaxRequests;
+
+    @Value("${rate.limit.user.per-user.time-period-ms:1000}")
+    private int perUserTimePeriodMs;
+
+    @Value("${resilience4j.circuitbreaker.instances.transcribe.failure-rate-threshold:50}")
+    private float transcribeFailureRateThreshold;
+
+    @Value("${resilience4j.circuitbreaker.instances.transcribe.sliding-window-size:10}")
+    private int transcribeSlidingWindowSize;
+
+    @Value("${resilience4j.circuitbreaker.instances.transcribe.minimum-number-of-calls:5}")
+    private int transcribeMinimumNumberOfCalls;
+
+    @Value("${resilience4j.circuitbreaker.instances.transcribe.wait-duration-in-open-state:30000}")
+    private int transcribeWaitDurationInOpenState;
+
+    @Value("${resilience4j.circuitbreaker.instances.transcribe.permitted-number-of-calls-in-half-open-state:3}")
+    private int transcribePermittedNumberOfCallsInHalfOpenState;
+
+    @Value("${resilience4j.circuitbreaker.instances.s3-upload.failure-rate-threshold:40}")
+    private float s3FailureRateThreshold;
+
+    @Value("${resilience4j.circuitbreaker.instances.s3-upload.sliding-window-size:10}")
+    private int s3SlidingWindowSize;
+
+    @Value("${resilience4j.circuitbreaker.instances.s3-upload.minimum-number-of-calls:5}")
+    private int s3MinimumNumberOfCalls;
+
+    @Value("${resilience4j.circuitbreaker.instances.s3-upload.wait-duration-in-open-state:15000}")
+    private int s3WaitDurationInOpenState;
+
     private static final String REQUEST_ID = "requestId";
     private static final String USER_ID = "userId";
     private static final String LANGUAGE = "language";
@@ -57,6 +103,16 @@ public class MainRoute extends RouteBuilder {
                     exchange.getMessage().setBody(new JsonObject().put("error", e.getMessage()));
                 });
 
+        onException(CallNotPermittedException.class)
+                .handled(true)
+                .process(exchange -> {
+                    log.error("Circuit breaker is OPEN - request rejected");
+                    exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 503);
+                    exchange.getMessage().setHeader("Retry-After", 30);
+                    exchange.getMessage().setBody(new JsonObject()
+                            .put("error", "Service temporarily unavailable"));
+                });
+
         onException(Exception.class)
                 .handled(true)
                 .process(exchange -> {
@@ -68,19 +124,86 @@ public class MainRoute extends RouteBuilder {
 
         from("servlet:/v1/result/{requestId}?httpMethodRestrict=GET")
                 .routeId("get-result")
+                .throttle(getResultMaxRequests)
+                .timePeriodMillis(getResultTimePeriodMs)
+                .asyncDelayed()
                 .process(this::processGetResult);
 
         from("servlet:/v1/route?httpMethodRestrict=POST")
                 .routeId("user-route")
+                .throttle(globalMaxRequests)
+                .timePeriodMillis(globalTimePeriodMs)
+                .asyncDelayed()
+                .rejectExecution(true)
                 .process(jwtAuthProcessor)
                 .process(this::prepareRequest)
                 .choice()
                 .when(exchange -> exchange.getProperty("skipTranscribe") == null)
+                .circuitBreaker()
+                .resilience4jConfiguration()
+                .failureRateThreshold(s3FailureRateThreshold)
+                .slidingWindowSize(s3SlidingWindowSize)
+                .minimumNumberOfCalls(s3MinimumNumberOfCalls)
+                .waitDurationInOpenState(s3WaitDurationInOpenState)
+                .permittedNumberOfCallsInHalfOpenState(2)
+                .timeoutEnabled(true)
+                .timeoutDuration(10000)
+                .end()
                 .to("aws2-s3://%s?deleteAfterWrite=false".formatted(bucketName))
+                .onFallback()
+                .process(exchange -> {
+                    String requestId = exchange.getProperty(REQUEST_ID, String.class);
+                    log.error("S3 circuit breaker fallback for request: {}", requestId);
+                    redisService.saveError(requestId, "S3 upload service temporarily unavailable");
+                    exchange.setProperty("s3UploadFailed", true);
+                    exchange.setProperty("skipTranscribe", true);
+
+                    String userId = exchange.getProperty(USER_ID, String.class);
+                    String language = exchange.getProperty(LANGUAGE, String.class);
+
+                    JsonObject sqsMessage = new JsonObject();
+                    sqsMessage.put("request_id", requestId);
+                    sqsMessage.put("text", "Audio upload failed, please try text input");
+                    sqsMessage.put("user_id", userId);
+                    sqsMessage.put("language", language);
+                    sqsMessage.put("error", "s3_upload_unavailable");
+                    exchange.getMessage().setBody(sqsMessage);
+                })
+                .end()
+
+                .circuitBreaker()
+                .resilience4jConfiguration()
+                .failureRateThreshold(transcribeFailureRateThreshold)
+                .slidingWindowSize(transcribeSlidingWindowSize)
+                .minimumNumberOfCalls(transcribeMinimumNumberOfCalls)
+                .waitDurationInOpenState(transcribeWaitDurationInOpenState)
+                .permittedNumberOfCallsInHalfOpenState(transcribePermittedNumberOfCallsInHalfOpenState)
+                .timeoutEnabled(true)
+                .timeoutDuration(60000)
+                .end()
                 .process(this::startTranscriptionJob)
                 .to("aws2-transcribe://startTranscriptionJob")
                 .to("aws2-transcribe://getTranscriptionJob")
                 .process(this::sendToSqs)
+                .onFallback()
+                .process(exchange -> {
+                    String requestId = exchange.getProperty(REQUEST_ID, String.class);
+                    log.error("Transcribe circuit breaker fallback for request: {}", requestId);
+                    redisService.saveError(requestId, "Transcription service temporarily unavailable");
+
+                    exchange.setProperty("skipTranscribe", true);
+                    String userId = exchange.getProperty(USER_ID, String.class);
+                    String language = exchange.getProperty(LANGUAGE, String.class);
+
+                    JsonObject sqsMessage = new JsonObject();
+                    sqsMessage.put("request_id", requestId);
+                    sqsMessage.put("text", "Transcription temporarily unavailable, please try text input");
+                    sqsMessage.put("user_id", userId);
+                    sqsMessage.put("language", language);
+                    sqsMessage.put("error", "transcription_unavailable");
+                    exchange.getMessage().setBody(sqsMessage);
+                })
+                .endChoice()
                 .otherwise()
                 .process(this::sendToSqs)
                 .end()
@@ -209,30 +332,34 @@ public class MainRoute extends RouteBuilder {
         @SuppressWarnings("unchecked")
         Map<String, Double> userLocation = exchange.getProperty("userLocation", Map.class);
 
-        if (exchange.getProperty("skipTranscribe") == null) {
+        if (exchange.getProperty("skipTranscribe") == null && exchange.getProperty("s3UploadFailed") == null) {
             redisService.savePending(requestId);
         }
 
-        String transcriptText = exchange.getIn().getBody(String.class);
+        if (exchange.getProperty("skipTranscribe") == null && exchange.getIn().getBody() != null) {
+            String transcriptText = exchange.getIn().getBody(String.class);
 
-        Optional.ofNullable(transcriptText)
-                .filter(t -> !t.isEmpty())
-                .orElseThrow(() -> new RuntimeException("Empty transcript result"));
+            if (transcriptText == null || transcriptText.isEmpty()) {
+                log.warn("Empty transcript result for request: {}", requestId);
+                redisService.saveError(requestId, "Empty transcription result");
+                throw new RuntimeException("Empty transcript result");
+            }
 
-        JsonObject sqsMessage = new JsonObject();
-        sqsMessage.put("request_id", requestId);
-        sqsMessage.put("text", transcriptText);
-        sqsMessage.put("user_id", userId);
-        sqsMessage.put("language", language);
+            JsonObject sqsMessage = new JsonObject();
+            sqsMessage.put("request_id", requestId);
+            sqsMessage.put("text", transcriptText);
+            sqsMessage.put("user_id", userId);
+            sqsMessage.put("language", language);
 
-        Optional.ofNullable(userLocation).ifPresent(userLocationExchange -> {
-            JsonObject location = new JsonObject();
-            location.put("lat", userLocation.get("lat"));
-            location.put("lon", userLocation.get("lon"));
-            sqsMessage.put("user_location", location);
-        });
+            Optional.ofNullable(userLocation).ifPresent(loc -> {
+                JsonObject location = new JsonObject();
+                location.put("lat", loc.get("lat"));
+                location.put("lon", loc.get("lon"));
+                sqsMessage.put("user_location", location);
+            });
 
-        exchange.getMessage().setBody(sqsMessage);
+            exchange.getMessage().setBody(sqsMessage);
+        }
     }
 
     private void sendResponse(@NonNull Exchange exchange) {
