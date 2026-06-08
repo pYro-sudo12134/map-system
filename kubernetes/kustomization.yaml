@@ -10,3 +10,4 @@ resources:
   - ism-system
   - database
   - admission-policies
+  - monitoring

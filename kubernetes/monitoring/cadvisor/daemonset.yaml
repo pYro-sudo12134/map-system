@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cadvisor
+  namespace: monitoring
+  labels:
+    app: cadvisor
+    component: monitoring
+    tier: metrics
+spec:
+  selector:
+    matchLabels:
+      app: cadvisor
+  template:
+    metadata:
+      labels:
+        app: cadvisor
+        component: monitoring
+        tier: metrics
+    spec:
+      serviceAccountName: cadvisor-sa
+      tolerations:
+        - operator: Exists
+      securityContext:
+        runAsUser: 0
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: cadvisor
+          image: gcr.io/cadvisor/cadvisor:v0.47.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+            runAsNonRoot: false
+            runAsUser: 0
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: true
+          ports:
+            - containerPort: 8080
+              name: http
+          args:
+            - --port=8080
+            - --housekeeping_interval=10s
+            - --max_housekeeping_interval=60s
+            - --containerd=/run/containerd/containerd.sock
+            - --docker=/var/run/docker.sock
+          volumeMounts:
+            - name: rootfs
+              mountPath: /rootfs
+              readOnly: true
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+            - name: docker
+              mountPath: /var/lib/docker
+              readOnly: true
+            - name: containerd
+              mountPath: /run/containerd/containerd.sock
+              readOnly: true
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+              readOnly: true
+            - name: dev-disk
+              mountPath: /dev/disk
+              readOnly: true
+            - name: machine-id
+              mountPath: /etc/machine-id
+              readOnly: true
+            - name: var-run
+              mountPath: /var/run
+              readOnly: false
+            - name: run
+              mountPath: /run
+              readOnly: false
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: rootfs
+          hostPath:
+            path: /
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: docker
+          hostPath:
+            path: /var/lib/docker
+        - name: containerd
+          hostPath:
+            path: /run/containerd/containerd.sock
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: dev-disk
+          hostPath:
+            path: /dev/disk
+        - name: machine-id
+          hostPath:
+            path: /etc/machine-id
+        - name: var-run
+          hostPath:
+            path: /var/run
+        - name: run
+          hostPath:
+            path: /run
