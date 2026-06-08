@@ -1,0 +1,43 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deny-host-path
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  validations:
+    - expression: |
+        !has(object.spec.volumes) || 
+        object.spec.volumes.all(v, 
+          !has(v.hostPath)
+        )
+      message: "hostPath volumes are not allowed for security reasons. Use PVCs instead."
+      reason: "Forbidden"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: deny-host-path
+spec:
+  policyName: deny-host-path
+  validationActions: [Deny, Audit]
+  matchResources:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - database
+            - ism-system
+            - ism-rag
+            - openfaas-fn
+            - openfaas
+            - ism-mq
+            - ingress
+            - monitoring

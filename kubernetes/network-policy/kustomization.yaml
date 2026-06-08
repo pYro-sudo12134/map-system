@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - auth-service-np.yaml
+  - postgres-np.yaml
+  - redis-np.yaml
+  - opensearch-np.yaml
+  - neo4j-np.yaml
+  - localstack-np.yaml
+  - map-router-np.yaml
+  - map-operator-np.yaml
+  - sync-operator-np.yaml
+  - rag-agent-np.yaml
+  - ingress-allow.yaml

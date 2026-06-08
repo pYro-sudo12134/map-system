@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: map-operator-config
+  namespace: ism-system
+data:
+  REDIS_HOST: redis.database.svc.cluster.local
+  REDIS_PORT: 6379
+  AWS_S3_BUCKET: voice-records
+  SQS_RESULTS_NAME: SQS_RESULTS
+  SQS_SYNC_NAME: SQS_SYNC
+  SQS_RAG_NAME: SQS_RAG
+  AWS_ENDPOINT_URL: http://localstack.ism-mq.svc.cluster.local:4566
+  AWS_REGION: us-east-1

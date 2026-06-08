@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ism-mq
+
+resources:
+  - configmap.yaml
+  - pdb.yaml
+  - pvc.yaml
+  - service.yaml
+  - statefulset.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+commonLabels:
+  app: localstack
+  component: mq

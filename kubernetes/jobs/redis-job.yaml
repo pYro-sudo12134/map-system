@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: redis-backup
+  namespace: database
+spec:
+  schedule: "0 3 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: redis:8.6.2-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  REDIS_PASSWORD_ARG=""
+                  if [ -n "$REDIS_PASSWORD" ]; then
+                    REDIS_PASSWORD_ARG="-a $REDIS_PASSWORD"
+                  fi
+                  
+                  redis-cli -h redis.database.svc.cluster.local -p 6379 $REDIS_PASSWORD_ARG --rdb /backup/dump.rdb
+                  cp /backup/dump.rdb /backup/dump-$(date +%Y%m%d-%H%M%S).rdb
+              env:
+                - name: REDIS_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: redis-secret
+                      key: REDIS_PASSWORD
+                      optional: true
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: redis-backup-pvc

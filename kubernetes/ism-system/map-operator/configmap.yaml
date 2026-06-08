@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: map-operator-config
+  namespace: ism-system
+data:
+  SQS_GO_URL: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_GO
+  QUEUE_NAME: SQS_GO
+  CHECK_INTERVAL: 10s
+  AWS_ENDPOINT_URL: http://localstack.ism-mq.svc.cluster.local:4566
+  AWS_REGION: us-east-1

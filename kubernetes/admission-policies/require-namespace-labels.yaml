@@ -1,0 +1,32 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: require-namespace-labels
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["namespaces"]
+  validations:
+    - expression: |
+        has(object.metadata.labels) &&
+        has(object.metadata.labels."environment") &&
+        (object.metadata.labels.environment == "dev" ||
+         object.metadata.labels.environment == "staging" ||
+         object.metadata.labels.environment == "production") &&
+        has(object.metadata.labels."team")
+      message: "Each namespace must have 'environment' (dev/staging/production) and 'team' labels"
+      reason: "Required"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: require-namespace-labels
+spec:
+  policyName: require-namespace-labels
+  validationActions: [Deny, Audit]
+  matchResources:
+    namespaceSelector: {}

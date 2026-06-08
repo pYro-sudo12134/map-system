@@ -1,0 +1,63 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: require-resource-requests-limits
+spec:
+  failurePolicy: Ignore  # !
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  validations:
+    - expression: |
+        !has(object.spec.containers) || 
+        object.spec.containers.all(c, 
+          has(c.resources) &&
+          has(c.resources.requests) &&
+          has(c.resources.requests.cpu) &&
+          has(c.resources.requests.memory) &&
+          has(c.resources.limits) &&
+          has(c.resources.limits.cpu) &&
+          has(c.resources.limits.memory)
+        )
+      message: "Each container must have CPU and memory requests AND limits defined. Example: resources: {requests: {cpu: '100m', memory: '128Mi'}, limits: {cpu: '200m', memory: '256Mi'}}"
+      reason: "Invalid"
+    - expression: |
+        !has(object.spec.initContainers) || 
+        object.spec.initContainers.all(c, 
+          has(c.resources) &&
+          has(c.resources.requests) &&
+          has(c.resources.requests.cpu) &&
+          has(c.resources.requests.memory) &&
+          has(c.resources.limits) &&
+          has(c.resources.limits.cpu) &&
+          has(c.resources.limits.memory)
+        )
+      message: "Each init container must have CPU and memory requests AND limits defined"
+      reason: "Invalid"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: require-resource-requests-limits
+spec:
+  policyName: require-resource-requests-limits
+  validationActions: [Warn, Audit]  # Warn
+  matchResources:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - kube-public
+            - kube-node-lease
+            - database
+            - ism-system
+            - ism-rag
+            - openfaas-fn
+            - openfaas
+            - ism-mq
+            - ingress

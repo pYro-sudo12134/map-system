@@ -1,0 +1,41 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deny-shared-process-namespace
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  validations:
+    - expression: |
+        !has(object.spec.shareProcessNamespace) ||
+        object.spec.shareProcessNamespace == false
+      message: "shareProcessNamespace=true is not allowed. It allows containers to see and signal each other's processes."
+      reason: "Forbidden"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: deny-shared-process-namespace
+spec:
+  policyName: deny-shared-process-namespace
+  validationActions: [Deny, Audit]
+  matchResources:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - database
+            - ism-system
+            - ism-rag
+            - openfaas-fn
+            - openfaas
+            - ism-mq
+            - ingress
+            - monitoring  # для sidecar

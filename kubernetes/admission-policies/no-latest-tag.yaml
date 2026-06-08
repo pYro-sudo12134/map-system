@@ -1,0 +1,52 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deny-latest-image-tag
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  validations:
+    - expression: |
+        !has(object.spec.containers) || 
+        object.spec.containers.all(c, 
+          !has(c.image) || 
+          !c.image.matches(':latest$') &&
+          !c.image.matches(':[0-9a-f]{7}$')
+        )
+      message: "Using ':latest' or short commit hash (7 chars) is not allowed. Use semantic version (e.g., '1.2.3') or full digest"
+      reason: "Invalid"
+    - expression: |
+        !has(object.spec.initContainers) || 
+        object.spec.initContainers.all(c, 
+          !has(c.image) || 
+          !c.image.matches(':latest$') &&
+          !c.image.matches(':[0-9a-f]{7}$')
+        )
+      message: "Using ':latest' or short commit hash in init containers is not allowed"
+      reason: "Invalid"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: deny-latest-image-tag
+spec:
+  policyName: deny-latest-image-tag
+  validationActions: [Warn, Audit]  # !!!!
+  matchResources:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+            - database
+            - ism-system
+            - ism-rag
+            - openfaas-fn
+            - openfaas
+            - ism-mq
+            - monitoring

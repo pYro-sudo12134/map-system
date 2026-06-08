@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: map-router
+  namespace: ism-system
+spec:
+  selector:
+    app: map-router
+  ports:
+    - port: 8082
+      targetPort: 8082
+      name: http
+  type: ClusterIP

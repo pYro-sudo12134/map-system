@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: localstack-cf-init
+  namespace: ism-mq
+data:
+  init.cf.yaml: |
+    AWSTemplateFormatVersion: "2010-09-09"
+    Description: "SQS, SNS, S3"
+    
+    Resources:
+      VoiceRecordsBucket:
+        Type: AWS::S3::Bucket
+        Properties:
+          BucketName: voice-records
+      
+      SQS_RAG:
+        Type: AWS::SQS::Queue
+        Properties:
+          QueueName: SQS_RAG
+          VisibilityTimeout: 60
+          RedrivePolicy:
+            deadLetterTargetArn: !GetAtt DLQ.Arn
+            maxReceiveCount: 3
+      
+      SQS_GO:
+        Type: AWS::SQS::Queue
+        Properties:
+          QueueName: SQS_GO
+          VisibilityTimeout: 60
+          RedrivePolicy:
+            deadLetterTargetArn: !GetAtt DLQ.Arn
+            maxReceiveCount: 3
+      
+      SQS_RESULTS:
+        Type: AWS::SQS::Queue
+        Properties:
+          QueueName: SQS_RESULTS
+          VisibilityTimeout: 60
+          RedrivePolicy:
+            deadLetterTargetArn: !GetAtt DLQ.Arn
+            maxReceiveCount: 3
+      
+      SQS_SYNC:
+        Type: AWS::SQS::Queue
+        Properties:
+          QueueName: SQS_SYNC
+          VisibilityTimeout: 120
+          RedrivePolicy:
+            deadLetterTargetArn: !GetAtt DLQ.Arn
+            maxReceiveCount: 3
+      
+      DLQ:
+        Type: AWS::SQS::Queue
+        Properties:
+          QueueName: DLQ
+          MessageRetentionPeriod: 1209600
+      
+      ISMTopic:
+        Type: AWS::SNS::Topic
+        Properties:
+          TopicName: ISM_Topic
+      
+      SQSResultsSubscription:
+        Type: AWS::SNS::Subscription
+        Properties:
+          TopicArn: !Ref ISMTopic
+          Endpoint: !GetAtt SQS_RESULTS.Arn
+          Protocol: sqs
+          RawMessageDelivery: true
+      
+      SQSResultsPolicy:
+        Type: AWS::SQS::QueuePolicy
+        Properties:
+          Queues:
+            - !Ref SQS_RESULTS
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Principal:
+                  Service: sns.amazonaws.com
+                Action: sqs:SendMessage
+                Resource: !GetAtt SQS_RESULTS.Arn
+                Condition:
+                  ArnEquals:
+                    aws:SourceArn: !Ref ISMTopic

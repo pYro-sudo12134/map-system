@@ -1,0 +1,69 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: localstack-network-policy
+  namespace: ism-mq
+spec:
+  podSelector:
+    matchLabels:
+      app: localstack
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ism-system
+          podSelector:
+            matchLabels:
+              app: map-operator
+      ports:
+        - protocol: TCP
+          port: 4566
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ism-system
+          podSelector:
+            matchLabels:
+              app: sync-operator
+      ports:
+        - protocol: TCP
+          port: 4566
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ism-system
+          podSelector:
+            matchLabels:
+              app: map-router
+      ports:
+        - protocol: TCP
+          port: 4566
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ism-rag
+      ports:
+        - protocol: TCP
+          port: 4566
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openfaas-fn
+          podSelector:
+            matchLabels:
+              faas_function: faas-m
+      ports:
+        - protocol: TCP
+          port: 4566
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openfaas-fn
+          podSelector:
+            matchLabels:
+              faas_function: faas-s
+      ports:
+        - protocol: TCP
+          port: 4566

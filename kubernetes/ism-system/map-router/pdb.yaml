@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: map-router-pdb
+  namespace: ism-system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: map-router

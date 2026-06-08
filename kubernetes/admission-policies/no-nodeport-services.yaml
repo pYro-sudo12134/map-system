@@ -1,0 +1,40 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deny-nodeport-services
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["services"]
+  validations:
+    - expression: |
+        !has(object.spec.type) ||
+        object.spec.type != "NodePort"
+      message: "NodePort services are not allowed. Use ClusterIP + Ingress or LoadBalancer instead."
+      reason: "Forbidden"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: deny-nodeport-services
+spec:
+  policyName: deny-nodeport-services
+  validationActions: [Deny, Audit]
+  matchResources:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - database
+            - ism-system
+            - ism-rag
+            - openfaas-fn
+            - openfaas
+            - ism-mq
+            - ingress

@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ism-system
+
+resources:
+  - statefulset.yaml
+  - pdb.yaml
+  - service.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true

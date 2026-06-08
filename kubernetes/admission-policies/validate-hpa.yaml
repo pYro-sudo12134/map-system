@@ -1,0 +1,68 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: validate-hpa-config
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["autoscaling"]
+        apiVersions: ["v2", "v2beta2"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["horizontalpodautoscalers"]
+  validations:
+    - expression: |
+        !has(object.spec.minReplicas) ||
+        object.spec.minReplicas >= 1
+      message: "minReplicas must be at least 1"
+      reason: "Invalid"
+    - expression: |
+        !has(object.spec.minReplicas) ||
+        !has(object.spec.maxReplicas) ||
+        object.spec.maxReplicas >= object.spec.minReplicas
+      message: "maxReplicas must be greater than or equal to minReplicas"
+      reason: "Invalid"
+    - expression: |
+        has(object.spec.metrics) &&
+        size(object.spec.metrics) > 0
+      message: "HPA must have at least one metric defined (cpu, memory, or custom)"
+      reason: "Required"
+    - expression: |
+        object.spec.metrics.exists(m, 
+          has(m.resource) && 
+          m.resource.name == "cpu" && 
+          has(m.resource.target) &&
+          has(m.resource.target.averageUtilization)
+        )
+      message: "HPA should have CPU utilization target (e.g., averageUtilization: 70)"
+      reason: "Recommended"
+
+    - expression: |
+        !has(object.spec.minReplicas) ||
+        object.spec.minReplicas >= 2 ||
+        has(object.metadata.annotations) &&
+        object.metadata.annotations."ha-required" == "false"
+      message: "For production HA, minReplicas should be >= 2. Set annotation 'ha-required: false' to override."
+      reason: "Recommended"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: validate-hpa-config
+spec:
+  policyName: validate-hpa-config
+  validationActions: [Deny, Audit]
+  matchResources:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - database
+            - ism-system
+            - ism-rag
+            - openfaas-fn
+            - openfaas
+            - ism-mq
+            - ingress

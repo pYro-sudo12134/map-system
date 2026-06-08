@@ -1,0 +1,39 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: neo4j-network-policy
+  namespace: database
+spec:
+  podSelector:
+    matchLabels:
+      app: neo4j
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openfaas-fn
+          podSelector:
+            matchLabels:
+              faas_function: faas-m
+      ports:
+        - protocol: TCP
+          port: 7687
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openfaas-fn
+          podSelector:
+            matchLabels:
+              faas_function: faas-s
+      ports:
+        - protocol: TCP
+          port: 7687
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress
+      ports:
+        - protocol: TCP
+          port: 7474

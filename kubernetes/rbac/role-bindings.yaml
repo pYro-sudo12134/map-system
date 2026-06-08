@@ -1,0 +1,221 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: postgres-binding
+  namespace: database
+subjects:
+  - kind: ServiceAccount
+    name: postgres-sa
+    namespace: database
+roleRef:
+  kind: Role
+  name: postgres-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: redis-binding
+  namespace: database
+subjects:
+  - kind: ServiceAccount
+    name: redis-sa
+    namespace: database
+roleRef:
+  kind: Role
+  name: redis-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: opensearch-binding
+  namespace: database
+subjects:
+  - kind: ServiceAccount
+    name: opensearch-sa
+    namespace: database
+roleRef:
+  kind: Role
+  name: opensearch-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: neo4j-binding
+  namespace: database
+subjects:
+  - kind: ServiceAccount
+    name: neo4j-sa
+    namespace: database
+roleRef:
+  kind: Role
+  name: neo4j-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: map-operator-binding
+  namespace: openfaas-fn
+subjects:
+  - kind: ServiceAccount
+    name: map-operator-sa
+    namespace: openfaas-fn
+roleRef:
+  kind: Role
+  name: map-operator-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: map-router-binding
+  namespace: ism-system
+subjects:
+  - kind: ServiceAccount
+    name: map-router-sa
+    namespace: ism-system
+roleRef:
+  kind: Role
+  name: map-operator-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sync-operator-binding
+  namespace: openfaas-fn
+subjects:
+  - kind: ServiceAccount
+    name: sync-operator-sa
+    namespace: openfaas-fn
+roleRef:
+  kind: Role
+  name: sync-operator-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: localstack-binding
+  namespace: ism-mq
+subjects:
+  - kind: ServiceAccount
+    name: localstack-sa
+    namespace: ism-mq
+roleRef:
+  kind: Role
+  name: localstack-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cadvisor
+subjects:
+  - kind: ServiceAccount
+    name: cadvisor-sa
+    namespace: monitoring
+roleRef:
+  kind: ClusterRole
+  name: cadvisor
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+  namespace: monitoring
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-sa
+    namespace: monitoring
+roleRef:
+  kind: ClusterRole
+  name: prometheus
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alloy
+subjects:
+  - kind: ServiceAccount
+    name: alloy-sa
+    namespace: monitoring
+roleRef:
+  kind: ClusterRole
+  name: alloy
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: loki
+  namespace: monitoring
+subjects:
+  - kind: ServiceAccount
+    name: loki-sa
+    namespace: monitoring
+roleRef:
+  kind: Role
+  name: loki
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tempo
+  namespace: monitoring
+subjects:
+  - kind: ServiceAccount
+    name: tempo-sa
+    namespace: monitoring
+roleRef:
+  kind: Role
+  name: tempo
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: grafana
+  namespace: monitoring
+subjects:
+  - kind: ServiceAccount
+    name: grafana-sa
+    namespace: monitoring
+roleRef:
+  kind: Role
+  name: grafana
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: auth-binding
+  namespace: ism-system
+subjects:
+  - kind: ServiceAccount
+    name: auth-sa
+    namespace: ism-system
+roleRef:
+  kind: Role
+  name: auth-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rag-binding
+  namespace: ism-rag
+subjects:
+  - kind: ServiceAccount
+    name: rag-sa
+    namespace: ism-rag
+roleRef:
+  kind: Role
+  name: rag-role
+  apiGroup: rbac.authorization.k8s.io

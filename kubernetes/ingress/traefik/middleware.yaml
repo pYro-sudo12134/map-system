@@ -1,0 +1,20 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: timeout-middleware
+  namespace: ingress
+spec:
+  timeout:
+    responseTimeout: 60s
+    idleTimeout: 180s
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: ratelimit-middleware
+  namespace: ingress
+spec:
+  rateLimit:
+    average: 100
+    burst: 50
+    period: 1m

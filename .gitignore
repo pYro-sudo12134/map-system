@@ -67,3 +67,5 @@ handler
 *.txt
 *.conf
 *.env
+
+!kubernetes/mq/localstack

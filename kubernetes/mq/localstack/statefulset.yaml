@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: localstack
+  namespace: ism-mq
+spec:
+  serviceName: localstack
+  replicas: 1
+  selector:
+    matchLabels:
+      app: localstack
+  template:
+    metadata:
+      labels:
+        app: localstack
+    spec:
+      tolerations:
+        - key: "node-role.kubernetes.io/CHANGE_ME"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/CHANGE_ME
+                    operator: Exists
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - CHANGE_ME
+      serviceAccountName: localstack-sa
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: localstack
+        image: localstack/localstack:4.12
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 4566
+          name: api
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          readOnlyRootFilesystem: false
+        env:
+        - name: SERVICES
+          value: sqs,sns,s3,cloudformation,transcribe
+        - name: AWS_DEFAULT_REGION
+          value: us-east-1
+        - name: AWS_ACCESS_KEY_ID
+          value: test
+        - name: AWS_SECRET_ACCESS_KEY
+          value: test
+        - name: PERSISTENCE
+          value: "1"
+        - name: PERSISTENCE_DIR
+          value: /var/lib/localstack
+        - name: DATA_DIR
+          value: /var/lib/localstack/data
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/localstack
+        - name: init-script
+          mountPath: /etc/localstack/init/ready.d
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          tcpSocket:
+            port: 4566
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 4566
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: localstack-pvc
+      - name: cf-init
+        configMap:
+          name: localstack-cf-init

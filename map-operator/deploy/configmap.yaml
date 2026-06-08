@@ -8,7 +8,7 @@ data:
     receivers:
       - name: 'scale-faas-m'
         webhook_configs:
-          - url: 'http://faasnetes.openfaas:8080/system/scale-function/faas-m'
+          - url: 'http://faasnetes.openfaas.svc.cluster.local:8080/system/scale-function/faas-m'
             send_resolved: false
     
     route:
