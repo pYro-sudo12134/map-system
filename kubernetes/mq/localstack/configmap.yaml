@@ -14,7 +14,7 @@ data:
         Properties:
           BucketName: voice-records
       
-      SQS_RAG:
+      SQSRAG:
         Type: AWS::SQS::Queue
         Properties:
           QueueName: SQS_RAG
@@ -23,7 +23,7 @@ data:
             deadLetterTargetArn: !GetAtt DLQ.Arn
             maxReceiveCount: 3
       
-      SQS_GO:
+      SQSGO:
         Type: AWS::SQS::Queue
         Properties:
           QueueName: SQS_GO
@@ -32,7 +32,7 @@ data:
             deadLetterTargetArn: !GetAtt DLQ.Arn
             maxReceiveCount: 3
       
-      SQS_RESULTS:
+      SQSRESULTS:
         Type: AWS::SQS::Queue
         Properties:
           QueueName: SQS_RESULTS
@@ -41,7 +41,7 @@ data:
             deadLetterTargetArn: !GetAtt DLQ.Arn
             maxReceiveCount: 3
       
-      SQS_SYNC:
+      SQSSYNC:
         Type: AWS::SQS::Queue
         Properties:
           QueueName: SQS_SYNC
@@ -65,7 +65,7 @@ data:
         Type: AWS::SNS::Subscription
         Properties:
           TopicArn: !Ref ISMTopic
-          Endpoint: !GetAtt SQS_RESULTS.Arn
+          Endpoint: !GetAtt SQSRESULTS.Arn
           Protocol: sqs
           RawMessageDelivery: true
       
@@ -73,7 +73,7 @@ data:
         Type: AWS::SQS::QueuePolicy
         Properties:
           Queues:
-            - !Ref SQS_RESULTS
+            - !Ref SQSRESULTS
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -81,7 +81,9 @@ data:
                 Principal:
                   Service: sns.amazonaws.com
                 Action: sqs:SendMessage
-                Resource: !GetAtt SQS_RESULTS.Arn
+                Resource: !GetAtt SQSRESULTS.Arn
                 Condition:
                   ArnEquals:
                     aws:SourceArn: !Ref ISMTopic
+
+# kubectl exec -it -n ism-mq localstack-0 -- awslocal cloudformation create-stack   --stack-name ism-infra   --template-body file:///etc/localstack/init/cloudformation/init.cf.yaml

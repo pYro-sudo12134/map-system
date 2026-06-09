@@ -6,15 +6,16 @@ metadata:
 data:
   OLLAMA_URL: http://ollama.ism-rag.svc.cluster.local:11434
   OLLAMA_MODEL: llama3.2:3b
-  OLLAMA_TEMPERATURE: 0.1
-  OLLAMA_MAX_TOKENS: 500
+  OLLAMA_TEMPERATURE: "0.1"
+  OLLAMA_MAX_TOKENS: "500"
   OPENSEARCH_URL: http://opensearch.database.svc.cluster.local:9200
   OPENSEARCH_INDEX: rag_queries
+  AWS_ENDPOINT_URL: http://localstack.ism-mq.svc.cluster.local:4566
   QUEUE_RAG_URL: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_RAG
   QUEUE_GO_URL: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_GO
   DLQ_URL: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/DLQ
   AWS_REGION: us-east-1
-  SIMILARITY_THRESHOLD: 0.85
-  KNN_SIZE: 5
-  MAX_RETRIES: 3
-  VISIBILITY_TIMEOUT: 60
+  SIMILARITY_THRESHOLD: "0.85"
+  KNN_SIZE: "5"
+  MAX_RETRIES: "3"
+  VISIBILITY_TIMEOUT: "60"

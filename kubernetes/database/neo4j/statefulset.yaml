@@ -14,26 +14,26 @@ spec:
       labels:
         app: neo4j
     spec:
-      tolerations:
-        - key: "node-role.kubernetes.io/CHANGE_ME"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: node-role.kubernetes.io/CHANGE_ME
-                    operator: Exists
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                      - CHANGE_ME
+#      tolerations:
+#        - key: "node-role.kubernetes.io/CHANGE_ME"
+#          operator: "Equal"
+#          value: "true"
+#          effect: "NoSchedule"
+#      affinity:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#              - matchExpressions:
+#                  - key: node-role.kubernetes.io/CHANGE_ME
+#                    operator: Exists
+#          preferredDuringSchedulingIgnoredDuringExecution:
+#            - weight: 100
+#              preference:
+#                matchExpressions:
+#                  - key: kubernetes.io/hostname
+#                    operator: In
+#                    values:
+#                      - CHANGE_ME
       serviceAccountName: neo4j-sa
       securityContext:
         runAsNonRoot: true
@@ -49,8 +49,10 @@ spec:
           ports:
             - containerPort: 7687
               name: bolt
+              protocol: TCP
             - containerPort: 7474
               name: http
+              protocol: TCP
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
@@ -58,7 +60,7 @@ spec:
             runAsGroup: 1000
             capabilities:
               drop: ["ALL"]
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
           env:
             - name: NEO4J_AUTH
               valueFrom:
@@ -77,6 +79,8 @@ spec:
               value: "apoc.*"
             - name: NEO4J_dbms_security_procedures_allowlist
               value: "apoc.*"
+            - name: NEO4J_server_config_strict__validation_enabled
+              value: "false"
           volumeMounts:
             - name: data
               mountPath: /data

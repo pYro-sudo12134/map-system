@@ -4,7 +4,7 @@ metadata:
   name: redis-pvc
   namespace: database
 spec:
-  storageClassName: zfs-local
+  storageClassName: local-path
   accessModes:
     - ReadWriteOnce
   resources:

@@ -16,29 +16,30 @@ spec:
       labels:
         app: ollama
     spec:
-      tolerations:
-        - key: "node-role.kubernetes.io/CHANGE_ME"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: node-role.kubernetes.io/storage
-                    operator: Exists
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                      - CHANGE_ME
+#      tolerations:
+#        - key: "node-role.kubernetes.io/CHANGE_ME"
+#          operator: "Equal"
+#          value: "true"
+#          effect: "NoSchedule"
+#      affinity:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#              - matchExpressions:
+#                  - key: node-role.kubernetes.io/storage
+#                    operator: Exists
+#          preferredDuringSchedulingIgnoredDuringExecution:
+#            - weight: 100
+#              preference:
+#                matchExpressions:
+#                  - key: kubernetes.io/hostname
+#                    operator: In
+#                    values:
+#                      - CHANGE_ME
       securityContext:
-        runAsNonRoot: false
-        runAsUser: 0
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -50,8 +51,11 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
             capabilities:
-              drop: ["ALL"]
+              drop: [ "ALL" ]
             readOnlyRootFilesystem: false
           env:
             - name: OLLAMA_HOST
@@ -65,10 +69,10 @@ spec:
               mountPath: /root/.ollama
           resources:
             requests:
-              memory: "4Gi"
+              memory: "1Gi"
               cpu: "2000m"
             limits:
-              memory: "8Gi"
+              memory: "2Gi"
               cpu: "4000m"
           livenessProbe:
             tcpSocket:

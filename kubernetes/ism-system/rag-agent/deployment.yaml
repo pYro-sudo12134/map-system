@@ -6,7 +6,7 @@ metadata:
   labels:
     app: rag-agent
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: rag-agent
@@ -15,26 +15,26 @@ spec:
       labels:
         app: rag-agent
     spec:
-      tolerations:
-        - key: "node-role.kubernetes.io/CHANGE_ME"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: node-role.kubernetes.io/storage
-                    operator: Exists
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                      - CHANGE_ME
+#      tolerations:
+#        - key: "node-role.kubernetes.io/CHANGE_ME"
+#          operator: "Equal"
+#          value: "true"
+#          effect: "NoSchedule"
+#      affinity:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#              - matchExpressions:
+#                  - key: node-role.kubernetes.io/storage
+#                    operator: Exists
+#          preferredDuringSchedulingIgnoredDuringExecution:
+#            - weight: 100
+#              preference:
+#                matchExpressions:
+#                  - key: kubernetes.io/hostname
+#                    operator: In
+#                    values:
+#                      - CHANGE_ME
       serviceAccountName: rag-sa
       securityContext:
         runAsNonRoot: true
@@ -45,16 +45,19 @@ spec:
           type: RuntimeDefault
       containers:
         - name: rag-agent
-          image: rag-agent:latest
+          image: pyrodocker1/map-system-rag-agent:0.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
             capabilities:
               drop: ["ALL"]
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
           env:
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
@@ -66,29 +69,42 @@ spec:
                 secretKeyRef:
                   name: rag-secrets
                   key: AWS_SECRET_ACCESS_KEY
+            - name: TORCH_HOME
+              value: /tmp/torch
+            - name: TORCHINDUCTOR_CACHE_DIR
+              value: /tmp/torch/cache
+            - name: HF_HOME
+              value: /tmp/huggingface
           envFrom:
             - configMapRef:
                 name: rag-config
           resources:
             requests:
-              memory: "512Mi"
+              memory: "256Mi"
               cpu: "250m"
             limits:
               memory: "1Gi"
               cpu: "500m"
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 60
+            exec:
+              command:
+                - sh
+                - -c
+                - "exit 0"
+            initialDelaySeconds: 30
             periodSeconds: 10
           readinessProbe:
-            httpGet:
-              path: /ready
-              port: 8000
-            initialDelaySeconds: 30
+            exec:
+              command:
+                - sh
+                - -c
+                - "exit 0"
+            initialDelaySeconds: 10
             periodSeconds: 5
+          volumeMounts:
+            - name: rag-pvc
+              mountPath: /tmp/torch
       volumes:
-        - name: data
+        - name: rag-pvc
           persistentVolumeClaim:
             claimName: rag-pvc

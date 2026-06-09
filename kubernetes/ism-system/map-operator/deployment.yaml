@@ -18,26 +18,26 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
     spec:
-      tolerations:
-        - key: "node-role.kubernetes.io/CHANGE_ME"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: node-role.kubernetes.io/storage
-                    operator: Exists
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                      - CHANGE_ME
+#      tolerations:
+#        - key: "node-role.kubernetes.io/CHANGE_ME"
+#          operator: "Equal"
+#          value: "true"
+#          effect: "NoSchedule"
+#      affinity:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#              - matchExpressions:
+#                  - key: node-role.kubernetes.io/storage
+#                    operator: Exists
+#          preferredDuringSchedulingIgnoredDuringExecution:
+#            - weight: 100
+#              preference:
+#                matchExpressions:
+#                  - key: kubernetes.io/hostname
+#                    operator: In
+#                    values:
+#                      - CHANGE_ME
       serviceAccountName: map-operator-sa
       securityContext:
         runAsNonRoot: true
@@ -48,7 +48,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: operator
-          image: map-operator:latest
+          image: pyrodocker1/map-operator:0.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9090

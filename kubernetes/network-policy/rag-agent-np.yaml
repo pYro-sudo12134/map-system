@@ -8,20 +8,28 @@ spec:
     matchLabels:
       app: rag-agent
   policyTypes:
-    - Ingress
     - Egress
-  ingress:
-    - from:
+  egress:
+    - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: ism-system
+              kubernetes.io/metadata.name: kube-system
           podSelector:
             matchLabels:
-              app: map-router
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
       ports:
         - protocol: TCP
-          port: 8000
-  egress:
+          port: 443
+        - protocol: TCP
+          port: 80
     - to:
         - namespaceSelector:
             matchLabels:

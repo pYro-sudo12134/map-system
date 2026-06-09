@@ -17,26 +17,26 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9600"
     spec:
-      tolerations:
-        - key: "node-role.kubernetes.io/CHANGE_ME"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: node-role.kubernetes.io/CHANGE_ME
-                    operator: Exists
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                      - CHANGE_ME
+#      tolerations:
+#        - key: "node-role.kubernetes.io/CHANGE_ME"
+#          operator: "Equal"
+#          value: "true"
+#          effect: "NoSchedule"
+#      affinity:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#              - matchExpressions:
+#                  - key: node-role.kubernetes.io/CHANGE_ME
+#                    operator: Exists
+#          preferredDuringSchedulingIgnoredDuringExecution:
+#            - weight: 100
+#              preference:
+#                matchExpressions:
+#                  - key: kubernetes.io/hostname
+#                    operator: In
+#                    values:
+#                      - CHANGE_ME
       serviceAccountName: opensearch-sa
       securityContext:
         runAsNonRoot: true
@@ -45,13 +45,6 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-        - name: increase-vm-max-map
-          image: busybox:latest
-          command: ["sysctl", "-w", "vm.max_map_count=262144"]
-          securityContext:
-            privileged: true
-            runAsNonRoot: false
       containers:
         - name: opensearch
           image: opensearchproject/opensearch:2.11.0
@@ -68,15 +61,12 @@ spec:
             runAsGroup: 1000
             capabilities:
               drop: ["ALL"]
-              add: ["IPC_LOCK"]
             readOnlyRootFilesystem: false
           env:
             - name: discovery.type
               value: single-node
-            - name: plugins.security.disabled
-              value: "false"
             - name: DISABLE_SECURITY_PLUGIN
-              value: "false"
+              value: "true"
             - name: cluster.name
               value: ism-cluster
             - name: node.name
@@ -94,8 +84,8 @@ spec:
                 secretKeyRef:
                   name: opensearch-secret
                   key: OPENSEARCH_PASSWORD
-            - name: plugins.security.audit.type
-              value: internal_elasticsearch
+#            - name: plugins.security.audit.type
+#              value: internal_elasticsearch
           volumeMounts:
             - name: data
               mountPath: /usr/share/opensearch/data

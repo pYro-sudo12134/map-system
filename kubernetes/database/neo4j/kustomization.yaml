@@ -6,7 +6,6 @@ namespace: database
 resources:
   - pdb.yaml
   - pvc.yaml
-  - secret.yaml
   - service.yaml
   - statefulset.yaml
 

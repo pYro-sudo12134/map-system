@@ -11,3 +11,4 @@ resources:
   - database
   - admission-policies
   - monitoring
+  - storage

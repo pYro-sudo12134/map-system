@@ -5,7 +5,7 @@ metadata:
   namespace: ism-system
 data:
   REDIS_HOST: redis.database.svc.cluster.local
-  REDIS_PORT: 6379
+  REDIS_PORT: "6379"
   AWS_S3_BUCKET: voice-records
   SQS_RESULTS_NAME: SQS_RESULTS
   SQS_SYNC_NAME: SQS_SYNC
