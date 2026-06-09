@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: monitoring
+data:
+  config.alloy: |
+    prometheus.scrape "kubernetes_pods" {
+      targets    = discovery.kubernetes.pods.targets
+      forward_to = [prometheus.remote_write.metrics.receiver]
+      scrape_interval = "30s"
+    }
+    
+    prometheus.scrape "kubernetes_nodes" {
+      targets    = discovery.kubernetes.nodes.targets
+      forward_to = [prometheus.remote_write.metrics.receiver]
+      scrape_interval = "30s"
+    }
+    
+    prometheus.remote_write "metrics" {
+      endpoint {
+        url = "http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+      }
+    }
+    
+    loki.write "logs" {
+      endpoint {
+        url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+      }
+    }
+    
+    loki.source.file "pod_logs" {
+      targets    = discovery.kubernetes.pods.targets
+      forward_to = [loki.write.logs.receiver]
+    }
+    
+    otelcol.receiver.otlp "traces" {
+      grpc {
+        endpoint = "0.0.0.0:4317"
+      }
+      http {
+        endpoint = "0.0.0.0:4318"
+      }
+      output {
+        traces = [otelcol.processor.batch.traces.input]
+      }
+    }
+    
+    otelcol.processor.batch "traces" {
+      output {
+        traces = [otelcol.exporter.otlp.traces.input]
+      }
+    }
+    
+    otelcol.exporter.otlp "traces" {
+      client {
+        endpoint = "tempo.monitoring.svc.cluster.local:4317"
+        tls {
+          insecure = true
+        }
+      }
+    }
+    
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+    
+    discovery.kubernetes "nodes" {
+      role = "node"
+    }
+    
+    discovery.kubernetes "services" {
+      role = "service"
+    }

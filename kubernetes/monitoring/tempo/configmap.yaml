@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-config
+  namespace: monitoring
+data:
+  tempo.yaml: |
+    server:
+      http_listen_port: 3200
+      grpc_listen_port: 9096
+    
+    distributor:
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:4317
+            http:
+              endpoint: 0.0.0.0:4318
+    
+    ingester:
+      trace_idle_period: 10s
+      max_block_duration: 5m
+      complete_block_timeout: 1h
+      lifecycler:
+        ring:
+          kvstore:
+            store: inmemory
+          replication_factor: 1
+        final_sleep: 0s
+    
+    compactor:
+      compaction:
+        block_retention: 48h
+        compacted_block_retention: 1h
+    
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /var/tempo/traces
+        wal:
+          path: /var/tempo/wal
+        block: {}
+        pool:
+          max_workers: 100
+          queue_depth: 10000
+    
+    overrides:
+      defaults:
+        metrics_generator:
+          processors: []
+        ingestion:
+          rate_limit_bytes: 15000000
+          burst_size_bytes: 20000000
+    
+    metrics_generator:
+      registry:
+        external_labels:
+          source: tempo
+          cluster: k3s-booking
+      storage:
+        path: /var/tempo/generator/wal
+        remote_write:
+          - url: http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write
+            send_exemplars: true
+      traces_storage:
+        path: /var/tempo/generator/traces
+      processor:
+        span_metrics:
+          dimensions:
+            - service.name
+            - span.kind
+            - status.code
+            - http.method
+            - http.route
+        service_graphs:
+          wait: 10s
+          max_items: 10000
+          workers: 10

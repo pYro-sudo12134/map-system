@@ -3,3 +3,8 @@ kind: Kustomization
 
 resources:
   - cadvisor
+  - alloy
+  - prometheus
+  - tempo
+  - loki
+  - grafana

@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  namespace: monitoring
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: http://prometheus.monitoring.svc.cluster.local:9090
+        isDefault: true
+        editable: true
+        jsonData:
+          timeInterval: 30s
+          httpMethod: POST
+      
+      - name: Loki
+        type: loki
+        uid: loki
+        access: proxy
+        url: http://loki.monitoring.svc.cluster.local:3100
+        editable: true
+        jsonData:
+          maxLines: 1000
+      
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        access: proxy
+        url: http://tempo.monitoring.svc.cluster.local:3200
+        editable: true
+        jsonData:
+          tracesToLogs:
+            datasourceUid: loki
+            tags: [{ key: "service.name", value: "service.name" }]
+          serviceMap:
+            datasourceUid: prometheus
+      
+      - name: cAdvisor
+        type: prometheus
+        uid: cadvisor
+        access: proxy
+        url: http://prometheus.monitoring.svc.cluster.local:9090
+        editable: true
+        jsonData:
+          timeInterval: 30s
+
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: true
+
+  grafana.ini: |
+    [server]
+    root_url = http://grafana.booking.local
+    domain = grafana.booking.local
+
+    [auth]
+    disable_login_form = false
+    disable_signout_menu = false
+
+    [auth.anonymous]
+    enabled = false
+
+    [auth.basic]
+    enabled = true
+
+    [security]
+    admin_user = admin
+    admin_password = admin
+
+    [users]
+    allow_sign_up = false
+    auto_assign_org = true
+    auto_assign_org_role = Viewer
+
+    [log]
+    mode = console
+    level = info
+
+    [metrics]
+    enabled = true
+    interval_seconds = 10
+
+    [grafana_net]
+    url = https://grafana.net
+
+    [panels]
+    disable_sanitize_html = false
+
+    [alerting]
+    enabled = true
+    execute_alerts = true

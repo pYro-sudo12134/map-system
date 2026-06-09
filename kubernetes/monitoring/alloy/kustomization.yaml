@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: monitoring
+
+resources:
+  - daemonset.yaml
+  - service.yaml
+  - configmap.yaml
+
+#secretGenerator:
+#  - name: alloy-secret
+#    envs:
+#      - .env
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+commonLabels:
+  app: alloy
+  component: collector

@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: monitoring
+
+resources:
+  - statefulset.yaml
+  - service.yaml
+  - pvc.yaml
+  - configmap.yaml
+
+#secretGenerator:
+#  - name: tempo-secret
+#    envs:
+#      - .env
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+commonLabels:
+  app: tempo
+  component: tracing
