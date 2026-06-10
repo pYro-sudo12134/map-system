@@ -15,7 +15,7 @@ spec:
   source:
     repoURL: https://github.com/pYro-sudo12134/map-system
     targetRevision: master
-    path: helm/ism-system/rag-agent
+    path: helm/ism-system/charts/rag-agent
 
   destination:
     server: https://kubernetes.default.svc
