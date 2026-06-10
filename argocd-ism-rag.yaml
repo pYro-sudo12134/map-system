@@ -6,13 +6,14 @@ metadata:
   annotations:
     argocd-image-updater.argoproj.io/image-list: |
       rag-agent=docker.io/pyrodocker1/rag-agent
+    argocd-image-updater.argoproj.io/auth-service.allow-tags: regexp:^0\.\d+\.\d+$
     argocd-image-updater.argoproj.io/rag-agent.update-strategy: digest
     argocd-image-updater.argoproj.io/update-interval: 5m
 
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-username/map-system
+    repoURL: https://github.com/pYro-sudo12134/map-system
     targetRevision: master
     path: helm/ism-system/rag-agent
 
