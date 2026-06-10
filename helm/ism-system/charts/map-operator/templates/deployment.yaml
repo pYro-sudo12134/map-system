@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "map-operator.fullname" . }}-map-operator
+  labels:
+    app: map-operator
+  {{- include "map-operator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.mapOperator.replicas }}
+  selector:
+    matchLabels:
+      app: map-operator
+    {{- include "map-operator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: map-operator
+      {{- include "map-operator.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/port: "9090"
+        prometheus.io/scrape: "true"
+    spec:
+      containers:
+      - env:
+        - name: SQS_GO_URL
+          valueFrom:
+            configMapKeyRef:
+              key: SQS_GO_URL
+              name: {{ include "map-operator.fullname" . }}-config
+        - name: QUEUE_NAME
+          valueFrom:
+            configMapKeyRef:
+              key: QUEUE_NAME
+              name: {{ include "map-operator.fullname" . }}-config
+        - name: CHECK_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              key: CHECK_INTERVAL
+              name: {{ include "map-operator.fullname" . }}-config
+        - name: AWS_ENDPOINT_URL
+          valueFrom:
+            configMapKeyRef:
+              key: AWS_ENDPOINT_URL
+              name: {{ include "map-operator.fullname" . }}-config
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              key: AWS_ACCESS_KEY_ID
+              name: aws-secrets
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              key: AWS_SECRET_ACCESS_KEY
+              name: aws-secrets
+        - name: AWS_REGION
+          valueFrom:
+            configMapKeyRef:
+              key: AWS_REGION
+              name: {{ include "map-operator.fullname" . }}-config
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.mapOperator.operator.image.repository }}:{{ .Values.mapOperator.operator.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.mapOperator.operator.imagePullPolicy }}
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        name: operator
+        ports:
+        - containerPort: 9090
+          name: metrics
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 9090
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources: {{- toYaml .Values.mapOperator.operator.resources | nindent 10 }}
+        securityContext: {{- toYaml .Values.mapOperator.operator.containerSecurityContext
+          | nindent 10 }}
+      nodeSelector: {{- toYaml .Values.mapOperator.nodeSelector | nindent 8 }}
+      securityContext: {{- toYaml .Values.mapOperator.podSecurityContext | nindent 8 }}
+      serviceAccountName: {{ include "map-operator.serviceAccountName" . }}
+      tolerations: {{- toYaml .Values.mapOperator.tolerations | nindent 8 }}
+      topologySpreadConstraints: {{- toYaml .Values.mapOperator.topologySpreadConstraints
+        | nindent 8 }}

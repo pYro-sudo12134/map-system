@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "map-operator.fullname" . }}-pdb
+  labels:
+  {{- include "map-operator.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: map-operator
+    {{- include "map-operator.selectorLabels" . | nindent 6 }}

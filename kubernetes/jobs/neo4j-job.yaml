@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: neo4j-backup-job
+  namespace: database
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: neo4j-backup
+              image: neo4j:5.21-community
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  BACKUP_FILE="/backups/neo4j-$(date +%Y%m%d-%H%M%S).dump"
+                  
+                  cypher-shell -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" \
+                    -a bolt://neo4j.database.svc.cluster.local:7687 \
+                    "CALL apoc.export.cypher.all('$BACKUP_FILE', {useTypes: true})" \
+                    --format plain
+                  
+                  echo "Backup saved: $BACKUP_FILE"
+                  ls -lh $BACKUP_FILE
+                  
+                  ls -t /backups/neo4j-*.dump | tail -n +31 | xargs -r rm -f
+              volumeMounts:
+                - name: backup
+                  mountPath: /backups
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: neo4j-backup-pvc
+          restartPolicy: OnFailure

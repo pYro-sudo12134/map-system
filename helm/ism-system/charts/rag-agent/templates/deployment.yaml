@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rag-agent.fullname" . }}-agent
+  labels:
+    app: rag-agent
+  {{- include "rag-agent.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.agent.replicas }}
+  selector:
+    matchLabels:
+      app: rag-agent
+    {{- include "rag-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: rag-agent
+      {{- include "rag-agent.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              key: AWS_ACCESS_KEY_ID
+              name: {{ include "rag-agent.fullname" . }}-secrets
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              key: AWS_SECRET_ACCESS_KEY
+              name: {{ include "rag-agent.fullname" . }}-secrets
+        - name: TORCH_HOME
+          value: {{ quote .Values.agent.ragAgent.env.torchHome }}
+        - name: TORCHINDUCTOR_CACHE_DIR
+          value: {{ quote .Values.agent.ragAgent.env.torchinductorCacheDir }}
+        - name: HF_HOME
+          value: {{ quote .Values.agent.ragAgent.env.hfHome }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "rag-agent.fullname" . }}-config
+        image: {{ .Values.agent.ragAgent.image.repository }}:{{ .Values.agent.ragAgent.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.agent.ragAgent.imagePullPolicy }}
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - exit 0
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        name: rag-agent
+        ports:
+        - containerPort: 8000
+          name: http
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - exit 0
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources: {{- toYaml .Values.agent.ragAgent.resources | nindent 10 }}
+        securityContext: {{- toYaml .Values.agent.ragAgent.containerSecurityContext | nindent
+          10 }}
+        volumeMounts:
+        - mountPath: /tmp/torch
+          name: rag-pvc
+      nodeSelector: {{- toYaml .Values.agent.nodeSelector | nindent 8 }}
+      securityContext: {{- toYaml .Values.agent.podSecurityContext | nindent 8 }}
+      serviceAccountName: {{ include "rag-agent.serviceAccountName" . }}
+      tolerations: {{- toYaml .Values.agent.tolerations | nindent 8 }}
+      topologySpreadConstraints: {{- toYaml .Values.agent.topologySpreadConstraints | nindent
+        8 }}
+      volumes:
+      - name: rag-pvc
+        persistentVolumeClaim:
+          claimName: {{ include "rag-agent.fullname" . }}-pvc

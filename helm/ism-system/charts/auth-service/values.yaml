@@ -1,0 +1,61 @@
+config:
+  authDb: ism_auth
+  authServiceSchema: auth
+  dbUsername: CHANGE_ME
+  jwtExpiration: "86400000"
+  jwtRefreshExpiration: "604800000"
+  loggingLevelAuth: INFO
+  postgresHost: postgres.database.svc.cluster.local
+  postgresPort: "5432"
+  springSecurityLevel: WARN
+kubernetesClusterDomain: cluster.local
+serviceAccount:
+  create: true
+  name: auth-service-sa
+  annotations: {}
+  automount: false
+service:
+  secrets:
+    dbPassword: "CHANGE_ME"
+    jwtSecret: "CHANGE_ME_AT_LEAST_32_CHARS"
+  authService:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+      runAsGroup: 1000
+      runAsNonRoot: true
+      runAsUser: 1000
+      seccompProfile:
+        type: RuntimeDefault
+    image:
+      repository: pyrodocker1/auth-service
+      tag: "0.1"
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+  nodeSelector: {}
+  podSecurityContext:
+    fsGroup: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  ports:
+  - name: http
+    port: 8081
+    targetPort: 8081
+  replicas: 2
+  tolerations: []
+  topologySpreadConstraints: []
+  type: ClusterIP
+servicePdb:
+  minAvailable: 1

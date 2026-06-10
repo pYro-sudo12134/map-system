@@ -1,0 +1,73 @@
+serviceAccount:
+  create: true
+  name: rag-agent-sa
+  annotations: {}
+  automount: false
+agent:
+  secrets:
+    awsAccessKeyId: CHANGE_ME
+    awsSecretAccessKey: CHANGE_ME
+  nodeSelector: {}
+  podSecurityContext:
+    fsGroup: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  ragAgent:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: false
+      runAsGroup: 1000
+      runAsNonRoot: true
+      runAsUser: 1000
+    env:
+      hfHome: /tmp/huggingface
+      torchHome: /tmp/torch
+      torchinductorCacheDir: /tmp/torch/cache
+    image:
+      repository: pyrodocker1/map-system-rag-agent
+      tag: "0.1"
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+  replicas: 1
+  tolerations: []
+  topologySpreadConstraints: []
+  type: ClusterIP
+agentPdb:
+  minAvailable: 1
+config:
+  awsEndpointUrl: http://localstack.ism-mq.svc.cluster.local:4566
+  awsRegion: us-east-1
+  dlqUrl: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/DLQ
+  knnSize: "5"
+  maxRetries: "3"
+  ollamaMaxTokens: "500"
+  ollamaModel: llama3.2:3b
+  ollamaTemperature: "0.1"
+  ollamaUrl: http://ollama.ism-rag.svc.cluster.local:11434
+  opensearchIndex: rag_queries
+  opensearchUrl: http://opensearch.database.svc.cluster.local:9200
+  queueGoUrl: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_GO
+  queueRagUrl: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_RAG
+  similarityThreshold: "0.85"
+  visibilityTimeout: "60"
+kubernetesClusterDomain: cluster.local
+pvc:
+  pvc:
+    storageClass: local-path
+    storageRequest: 10Gi

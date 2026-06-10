@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "map-operator.fullname" . }}-map-operator
+  labels:
+    app: map-operator
+  {{- include "map-operator.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.mapOperator.type }}
+  selector:
+    app: map-operator
+    {{- include "map-operator.selectorLabels" . | nindent 4 }}
+  ports:
+  {{- .Values.mapOperator.ports | toYaml | nindent 2 }}

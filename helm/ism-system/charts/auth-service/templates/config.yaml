@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "auth-service.fullname" . }}-config
+  labels:
+  {{- include "auth-service.labels" . | nindent 4 }}
+data:
+  AUTH_DB: {{ .Values.config.authDb | quote }}
+  AUTH_SERVICE_SCHEMA: {{ .Values.config.authServiceSchema | quote }}
+  DB_USERNAME: {{ .Values.config.dbUsername | quote }}
+  JWT_EXPIRATION: {{ .Values.config.jwtExpiration | quote }}
+  JWT_REFRESH_EXPIRATION: {{ .Values.config.jwtRefreshExpiration | quote }}
+  LOGGING_LEVEL_AUTH: {{ .Values.config.loggingLevelAuth | quote }}
+  POSTGRES_HOST: {{ .Values.config.postgresHost | quote }}
+  POSTGRES_PORT: {{ .Values.config.postgresPort | quote }}
+  SPRING_SECURITY_LEVEL: {{ .Values.config.springSecurityLevel | quote }}

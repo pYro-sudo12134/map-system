@@ -10,3 +10,4 @@
 *.mod eol=lf
 *.yaml eol=lf
 *.yml eol=lf
+*.tpl eol=lf

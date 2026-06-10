@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "rag-agent.fullname" . }}-agent-pdb
+  labels:
+  {{- include "rag-agent.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.agentPdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: rag-agent
+    {{- include "rag-agent.selectorLabels" . | nindent 6 }}

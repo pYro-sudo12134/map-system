@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "map-router.fullname" . }}-router
+  labels:
+    app: map-router
+  {{- include "map-router.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.router.replicas }}
+  selector:
+    matchLabels:
+      app: map-router
+    {{- include "map-router.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: map-router
+      {{- include "map-router.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - env:
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              key: REDIS_HOST
+              name: {{ include "map-router.fullname" . }}-operator-config
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              key: REDIS_PORT
+              name: {{ include "map-router.fullname" . }}-operator-config
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: REDIS_PASSWORD
+              name: {{- include "map-router.fullname" . | nindent 4 }}-secret
+        - name: AWS_ENDPOINT_URL
+          valueFrom:
+            configMapKeyRef:
+              key: AWS_ENDPOINT_URL
+              name: {{ include "map-router.fullname" . }}-operator-config
+        - name: AWS_REGION
+          valueFrom:
+            configMapKeyRef:
+              key: AWS_REGION
+              name: {{ include "map-router.fullname" . }}-operator-config
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              key: AWS_ACCESS_KEY_ID
+              name: {{- include "map-router.fullname" . | nindent 4 }}-secret
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              key: AWS_SECRET_ACCESS_KEY
+              name: {{- include "map-router.fullname" . | nindent 4 }}-secret
+        - name: AWS_S3_BUCKET
+          valueFrom:
+            configMapKeyRef:
+              key: AWS_S3_BUCKET
+              name: {{ include "map-router.fullname" . }}-operator-config
+        - name: SQS_RAG_NAME
+          valueFrom:
+            configMapKeyRef:
+              key: SQS_RAG_NAME
+              name: {{ include "map-router.fullname" . }}-operator-config
+        - name: SQS_RESULTS_NAME
+          valueFrom:
+            configMapKeyRef:
+              key: SQS_RESULTS_NAME
+              name: {{ include "map-router.fullname" . }}-operator-config
+        - name: SQS_SYNC_NAME
+          valueFrom:
+            configMapKeyRef:
+              key: SQS_SYNC_NAME
+              name: {{ include "map-router.fullname" . }}-operator-config
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: JWT_SECRET
+              name: {{- include "map-router.fullname" . | nindent 4 }}-secret
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.router.mapRouter.image.repository }}:{{ .Values.router.mapRouter.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.router.mapRouter.imagePullPolicy }}
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8082
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        name: map-router
+        ports:
+        - containerPort: 8082
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8082
+          initialDelaySeconds: 30
+          periodSeconds: 5
+        resources: {{- toYaml .Values.router.mapRouter.resources | nindent 10 }}
+        securityContext: {{- toYaml .Values.router.mapRouter.containerSecurityContext |
+          nindent 10 }}
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      nodeSelector: {{- toYaml .Values.router.nodeSelector | nindent 8 }}
+      securityContext: {{- toYaml .Values.router.podSecurityContext | nindent 8 }}
+      serviceAccountName: {{ include "map-router.serviceAccountName" . }}
+      tolerations: {{- toYaml .Values.router.tolerations | nindent 8 }}
+      topologySpreadConstraints: {{- toYaml .Values.router.topologySpreadConstraints |
+        nindent 8 }}
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: tmp

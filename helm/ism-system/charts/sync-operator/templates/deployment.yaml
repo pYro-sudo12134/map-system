@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sync-operator.fullname" . }}-sync-operator
+  labels:
+    app: sync-operator
+  {{- include "sync-operator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.syncOperator.replicas }}
+  selector:
+    matchLabels:
+      app: sync-operator
+    {{- include "sync-operator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: sync-operator
+      {{- include "sync-operator.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/port: "9090"
+        prometheus.io/scrape: "true"
+    spec:
+      containers:
+      - env:
+        - name: SQS_SYNC_URL
+          valueFrom:
+            configMapKeyRef:
+              key: SQS_SYNC_URL
+              name: {{ include "sync-operator.fullname" . }}-config
+        - name: QUEUE_NAME
+          valueFrom:
+            configMapKeyRef:
+              key: QUEUE_NAME
+              name: {{ include "sync-operator.fullname" . }}-config
+        - name: CHECK_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              key: CHECK_INTERVAL
+              name: {{ include "sync-operator.fullname" . }}-config
+        - name: AWS_ENDPOINT_URL
+          valueFrom:
+            configMapKeyRef:
+              key: AWS_ENDPOINT_URL
+              name: {{ include "sync-operator.fullname" . }}-config
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              key: AWS_ACCESS_KEY_ID
+              name: {{ include "sync-operator.fullname" . }}-secrets
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              key: AWS_SECRET_ACCESS_KEY
+              name: {{ include "sync-operator.fullname" . }}-secrets
+        - name: AWS_REGION
+          valueFrom:
+            configMapKeyRef:
+              key: AWS_REGION
+              name: {{ include "sync-operator.fullname" . }}-config
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.syncOperator.operator.image.repository }}:{{ .Values.syncOperator.operator.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.syncOperator.operator.imagePullPolicy }}
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        name: operator
+        ports:
+        - containerPort: 9090
+          name: metrics
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 9090
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources: {{- toYaml .Values.syncOperator.operator.resources | nindent 10 }}
+        securityContext: {{- toYaml .Values.syncOperator.operator.containerSecurityContext
+          | nindent 10 }}
+      nodeSelector: {{- toYaml .Values.syncOperator.nodeSelector | nindent 8 }}
+      securityContext: {{- toYaml .Values.syncOperator.podSecurityContext | nindent 8 }}
+      serviceAccountName: {{ include "sync-operator.serviceAccountName" . }}
+      tolerations: {{- toYaml .Values.syncOperator.tolerations | nindent 8 }}
+      topologySpreadConstraints: {{- toYaml .Values.syncOperator.topologySpreadConstraints
+        | nindent 8 }}

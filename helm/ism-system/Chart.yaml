@@ -1,0 +1,25 @@
+apiVersion: v2
+name: ism-system
+description: ISM System
+type: application
+version: 0.1.0
+dependencies:
+  - name: auth-service
+    version: 0.1
+    repository: file://charts/auth-service
+
+  - name: map-router
+    version: 0.1
+    repository: file://charts/map-router
+
+  - name: rag-agent
+    version: 0.1
+    repository: file://charts/rag-agent
+
+  - name: map-operator
+    version: 0.1
+    repository: file://charts/map-operator
+
+  - name: sync-operator
+    version: 0.1
+    repository: file://charts/sync-operator

@@ -1,0 +1,57 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: opensearch-snapshot-job
+  namespace: database
+spec:
+  schedule: "0 3 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: opensearch-snapshot
+              image: opensearchproject/opensearch:2.11.0
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  
+                  SNAPSHOT_NAME="snapshot-$(date +%Y%m%d-%H%M%S)"
+                  BACKUP_REPO="backup"
+                  
+                  echo "Starting backup: $SNAPSHOT_NAME"
+                  
+                  curl -s -X PUT "http://opensearch.database.svc.cluster.local:9200/_snapshot/${BACKUP_REPO}" \
+                    -H 'Content-Type: application/json' \
+                    -d '{
+                      "type": "fs",
+                      "settings": {
+                        "location": "/usr/share/opensearch/data/snapshots"
+                      }
+                    }' || true
+                  
+                  HTTP_RESPONSE=$(curl -s -w "%{http_code}" -o /tmp/response.json \
+                    -X PUT "http://opensearch.database.svc.cluster.local:9200/_snapshot/${BACKUP_REPO}/${SNAPSHOT_NAME}?wait_for_completion=true" \
+                    -H 'Content-Type: application/json' \
+                    -d '{
+                      "indices": "*",
+                      "ignore_unavailable": true,
+                      "include_global_state": false
+                    }')
+                  
+                  if [ "$HTTP_RESPONSE" -ne 200 ]; then
+                    echo "ERROR: Snapshot failed with HTTP code $HTTP_RESPONSE"
+                    cat /tmp/response.json
+                    exit 1
+                  fi
+                                    
+                  curl -s -X GET "http://opensearch.database.svc.cluster.local:9200/_snapshot/${BACKUP_REPO}/_all" | \
+                    grep -o '"snapshot":"[^"]*"' | \
+                    cut -d'"' -f4 | \
+                    sort | head -n -30 | while read old_snapshot; do
+                      echo "Deleting old snapshot: $old_snapshot"
+                      curl -s -X DELETE "http://opensearch.database.svc.cluster.local:9200/_snapshot/${BACKUP_REPO}/${old_snapshot}"
+                    done
+          restartPolicy: OnFailure

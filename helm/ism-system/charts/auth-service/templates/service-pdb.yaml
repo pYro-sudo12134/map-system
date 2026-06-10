@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "auth-service.fullname" . }}-service-pdb
+  labels:
+  {{- include "auth-service.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.servicePdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: auth-service
+    {{- include "auth-service.selectorLabels" . | nindent 6 }}

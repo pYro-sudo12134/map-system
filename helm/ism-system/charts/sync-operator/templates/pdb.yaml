@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "sync-operator.fullname" . }}-pdb
+  labels:
+  {{- include "sync-operator.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: sync-operator
+    {{- include "sync-operator.selectorLabels" . | nindent 6 }}

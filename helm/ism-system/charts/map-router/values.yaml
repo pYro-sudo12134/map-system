@@ -1,0 +1,57 @@
+kubernetesClusterDomain: cluster.local
+operatorConfig:
+  awsEndpointUrl: http://localstack.ism-mq.svc.cluster.local:4566
+  awsRegion: us-east-1
+  awsS3Bucket: voice-records
+  redisHost: redis.database.svc.cluster.local
+  redisPort: "6379"
+  sqsRagName: SQS_RAG
+  sqsResultsName: SQS_RESULTS
+  sqsSyncName: SQS_SYNC
+serviceAccount:
+  create: true
+  name: map-router-sa
+  annotations: {}
+  automount: false
+router:
+  secrets:
+    redisPassword: CHANGE_ME
+    awsAccessKeyId: CHANGE_ME
+    awsSecretAccessKey: CHANGE_ME
+    jwtSecret: CHANGE_ME_AT_LEAST_32_CHARS
+  mapRouter:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+    image:
+      repository: pyrodocker1/map-router
+      tag: "0.1"
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+  nodeSelector: {}
+  podSecurityContext:
+    fsGroup: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  ports:
+  - name: http
+    port: 8082
+    targetPort: 8082
+  replicas: 2
+  tolerations: []
+  topologySpreadConstraints: []
+  type: ClusterIP
+routerPdb:
+  minAvailable: 1

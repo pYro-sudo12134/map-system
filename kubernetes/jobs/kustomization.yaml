@@ -4,3 +4,7 @@ kind: Kustomization
 resources:
   - postgres-job.yaml
   - redis-job.yaml
+  - neo4j-job.yaml
+  - opensearch-job.yaml
+
+# в зависимости от того, как будут ставиться бдшки, надо менять скрипты

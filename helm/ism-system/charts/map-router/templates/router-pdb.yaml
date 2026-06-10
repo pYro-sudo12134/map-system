@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "map-router.fullname" . }}-router-pdb
+  labels:
+  {{- include "map-router.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.routerPdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: map-router
+    {{- include "map-router.selectorLabels" . | nindent 6 }}

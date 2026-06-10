@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rag-agent.fullname" . }}-config
+  labels:
+  {{- include "rag-agent.labels" . | nindent 4 }}
+data:
+  AWS_ENDPOINT_URL: {{ .Values.config.awsEndpointUrl | quote }}
+  AWS_REGION: {{ .Values.config.awsRegion | quote }}
+  DLQ_URL: {{ .Values.config.dlqUrl | quote }}
+  KNN_SIZE: {{ .Values.config.knnSize | quote }}
+  MAX_RETRIES: {{ .Values.config.maxRetries | quote }}
+  OLLAMA_MAX_TOKENS: {{ .Values.config.ollamaMaxTokens | quote }}
+  OLLAMA_MODEL: {{ .Values.config.ollamaModel | quote }}
+  OLLAMA_TEMPERATURE: {{ .Values.config.ollamaTemperature | quote }}
+  OLLAMA_URL: {{ .Values.config.ollamaUrl | quote }}
+  OPENSEARCH_INDEX: {{ .Values.config.opensearchIndex | quote }}
+  OPENSEARCH_URL: {{ .Values.config.opensearchUrl | quote }}
+  QUEUE_GO_URL: {{ .Values.config.queueGoUrl | quote }}
+  QUEUE_RAG_URL: {{ .Values.config.queueRagUrl | quote }}
+  SIMILARITY_THRESHOLD: {{ .Values.config.similarityThreshold | quote }}
+  VISIBILITY_TIMEOUT: {{ .Values.config.visibilityTimeout | quote }}

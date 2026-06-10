@@ -1,0 +1,52 @@
+config:
+  awsEndpointUrl: http://localstack.ism-mq.svc.cluster.local:4566
+  awsRegion: us-east-1
+  checkInterval: 10s
+  queueName: SQS_GO
+  sqsGoUrl: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_GO
+kubernetesClusterDomain: cluster.local
+serviceAccount:
+  create: true
+  name: map-operator-sa
+  annotations: {}
+  automount: false
+mapOperator:
+  secrets:
+    awsAccessKeyId: test
+    awsSecretAccessKey: test
+  nodeSelector: {}
+  operator:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+    image:
+      repository: pyrodocker1/map-operator
+      tag: "0.1"
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 200m
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi
+  podSecurityContext:
+    fsGroup: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  ports:
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+  replicas: 1
+  tolerations: []
+  topologySpreadConstraints: []
+  type: ClusterIP
+pdb:
+  minAvailable: 1

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "map-router.fullname" . }}-operator-config
+  labels:
+  {{- include "map-router.labels" . | nindent 4 }}
+data:
+  AWS_ENDPOINT_URL: {{ .Values.operatorConfig.awsEndpointUrl | quote }}
+  AWS_REGION: {{ .Values.operatorConfig.awsRegion | quote }}
+  AWS_S3_BUCKET: {{ .Values.operatorConfig.awsS3Bucket | quote }}
+  REDIS_HOST: {{ .Values.operatorConfig.redisHost | quote }}
+  REDIS_PORT: {{ .Values.operatorConfig.redisPort | quote }}
+  SQS_RAG_NAME: {{ .Values.operatorConfig.sqsRagName | quote }}
+  SQS_RESULTS_NAME: {{ .Values.operatorConfig.sqsResultsName | quote }}
+  SQS_SYNC_NAME: {{ .Values.operatorConfig.sqsSyncName | quote }}

@@ -68,4 +68,5 @@ handler
 *.conf
 *.env
 
+!helm/mq/localstack
 !kubernetes/mq/localstack

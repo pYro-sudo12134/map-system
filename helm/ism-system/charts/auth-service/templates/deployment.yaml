@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "auth-service.fullname" . }}-service
+  labels:
+    app: auth-service
+  {{- include "auth-service.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.service.replicas }}
+  selector:
+    matchLabels:
+      app: auth-service
+    {{- include "auth-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: auth-service
+      {{- include "auth-service.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: DB_PASSWORD
+              name: {{ include "auth-service.fullname" . }}-secrets
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: JWT_SECRET
+              name: {{ include "auth-service.fullname" . }}-secrets
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "auth-service.fullname" . }}-config
+        image: {{ .Values.service.authService.image.repository }}:{{ .Values.service.authService.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.service.authService.imagePullPolicy }}
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        name: auth-service
+        ports:
+        - containerPort: 8081
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 5
+        resources: {{- toYaml .Values.service.authService.resources | nindent 10 }}
+        securityContext: {{- toYaml .Values.service.authService.containerSecurityContext
+          | nindent 10 }}
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+      nodeSelector: {{- toYaml .Values.service.nodeSelector | nindent 8 }}
+      securityContext: {{- toYaml .Values.service.podSecurityContext | nindent 8 }}
+      serviceAccountName: {{ include "auth-service.serviceAccountName" . }}
+      tolerations: {{- toYaml .Values.service.tolerations | nindent 8 }}
+      topologySpreadConstraints: {{- toYaml .Values.service.topologySpreadConstraints |
+        nindent 8 }}
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: tmp

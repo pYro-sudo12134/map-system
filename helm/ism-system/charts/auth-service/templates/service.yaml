@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "auth-service.fullname" . }}-service
+  labels:
+    app: auth-service
+  {{- include "auth-service.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: auth-service
+    {{- include "auth-service.selectorLabels" . | nindent 4 }}
+  ports:
+  {{- .Values.service.ports | toYaml | nindent 2 }}
