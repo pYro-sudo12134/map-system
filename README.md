@@ -23,7 +23,7 @@
 | **Map Operator** | Go | Метрики для автоскейлинга Map FaaS |
 | **Sync Operator** | Go | Метрики для автоскейлинга Sync FaaS |
 | **Neo4j** | Neo4j 5 | Графовая БД |
-| **OpenSearch** | OpenSearch 2.11.0 | Поисковая копия, KNN, геопоиск |
+| **OpenSearch** | OpenSearch 2.11.0 | Поисковая копия, KNN, нечеткий поиск |
 | **Redis** | Redis 8 | Кеш результатов, статусы запросов |
 | **PostgreSQL** | PostgreSQL 16 | Хранение пользователей |
 | **LocalStack** | LocalStack 4 | SQS, SNS, S3, Transcribe, Cloudformation (локальная разработка) |
