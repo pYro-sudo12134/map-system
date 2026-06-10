@@ -11,11 +11,6 @@ spec:
         - key: kubernetes.io/metadata.name
           operator: In
           values: ["monitoring"]
-    resourceSelector:
-      matchExpressions:
-        - key: admission.exceptions.k8s.io/privileged
-          operator: In
-          values: ["allowed"]
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
@@ -23,7 +18,7 @@ metadata:
   name: exception-system-latest-tag
 spec:
   policyName: deny-latest-image-tag
-  validationActions: [Audit]  # только логируем
+  validationActions: [Audit]
   matchResources:
     namespaceSelector:
       matchExpressions:

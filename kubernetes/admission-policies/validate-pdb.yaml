@@ -21,7 +21,7 @@ spec:
         has(object.spec.selector) &&
         has(object.spec.selector.matchLabels)
       message: "PDB must have spec.selector.matchLabels to match workload pods"
-      reason: "Required"
+      reason: "Invalid"
     - expression: |
         !has(object.metadata.namespace) ||
         object.metadata.namespace != "database" ||
@@ -30,7 +30,7 @@ spec:
           (object.spec.minAvailable == 1 || object.spec.minAvailable == "50%")
         )
       message: "In 'database' namespace, PDB should have minAvailable=1 or '50%' for HA"
-      reason: "Recommended"
+      reason: "Invalid"
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding

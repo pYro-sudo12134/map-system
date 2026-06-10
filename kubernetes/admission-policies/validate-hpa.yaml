@@ -26,7 +26,7 @@ spec:
         has(object.spec.metrics) &&
         size(object.spec.metrics) > 0
       message: "HPA must have at least one metric defined (cpu, memory, or custom)"
-      reason: "Required"
+      reason: "Invalid"
     - expression: |
         object.spec.metrics.exists(m, 
           has(m.resource) && 
@@ -35,15 +35,14 @@ spec:
           has(m.resource.target.averageUtilization)
         )
       message: "HPA should have CPU utilization target (e.g., averageUtilization: 70)"
-      reason: "Recommended"
-
+      reason: "Invalid"
     - expression: |
         !has(object.spec.minReplicas) ||
         object.spec.minReplicas >= 2 ||
-        has(object.metadata.annotations) &&
-        object.metadata.annotations."ha-required" == "false"
+        (has(object.metadata.annotations) &&
+         object.metadata.annotations['ha-required'] == 'false')
       message: "For production HA, minReplicas should be >= 2. Set annotation 'ha-required: false' to override."
-      reason: "Recommended"
+      reason: "Invalid"
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding

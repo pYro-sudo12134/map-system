@@ -12,14 +12,12 @@ spec:
         resources: ["deployments", "statefulsets"]
   validations:
     - expression: |
-        (has(object.metadata.annotations) &&
-         has(object.metadata.annotations."hpa-enabled") &&
-         has(object.metadata.annotations."pdb-enabled")) &&
-        (
-          true
-        )
+        !has(object.metadata.annotations) ||
+        !('hpa-enabled' in object.metadata.annotations) ||
+        !('pdb-enabled' in object.metadata.annotations) ||
+        true
       message: "When using both HPA and PDB, ensure maxUnavailable in PDB is >= tolerance for scaling down"
-      reason: "Warning"
+      reason: "Invalid"
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
@@ -27,7 +25,7 @@ metadata:
   name: ensure-pdb-hpa-consistency
 spec:
   policyName: ensure-pdb-hpa-consistency
-  validationActions: [Warn, Audit]  # !!!
+  validationActions: [Warn, Audit]
   matchResources:
     namespaceSelector:
       matchExpressions:
@@ -36,7 +34,6 @@ spec:
           values:
             - ism-system
             - database
-            - ism-system
             - ism-rag
             - openfaas-fn
             - openfaas
