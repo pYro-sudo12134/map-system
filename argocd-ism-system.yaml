@@ -21,7 +21,7 @@ spec:
   source:
     repoURL: https://github.com/pYro-sudo12134/map-system
     targetRevision: master
-    path: helm/ism-system
+    path: helm/ism-system/charts
 
   destination:
     server: https://kubernetes.default.svc
