@@ -58,8 +58,10 @@ dist/
 
 
 # GO
-*.sum
-**/template
+sync-operator/deploy/template
+sync-operator/deploy/build
+map-operator/deploy/template
+map-operator/deploy/build
 
 # General
 *.exe
