@@ -1,0 +1,51 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-change-me-secrets
+  annotations:
+    policies.kyverno.io/title: Deny CHANGE_ME in Secrets
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Secrets must not contain placeholder values like CHANGE_ME.
+      This ensures real credentials are used before deployment.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: block-change-me-in-stringdata
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+      validate:
+        message: >-
+          Secret contains 'CHANGE_ME' placeholder. 
+          Replace with actual credentials before deployment.
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.data['*'] || '[]' | contains(@, 'Q0hBTkdFX01F') }}"
+                operator: Equals
+                value: true
+              - key: "{{ request.object.stringData['*'] || '[]' | contains(@, 'CHANGE_ME') }}"
+                operator: Equals
+                value: true
+
+    - name: block-change-me-in-data
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+      validate:
+        message: >-
+          Secret data contains 'CHANGE_ME' (base64 encoded). 
+          Use real credentials.
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.data | to_string(@) | contains('Q0hBTkdFX01F') }}"
+                operator: Equals
+                value: true
