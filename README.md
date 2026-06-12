@@ -27,9 +27,11 @@
 | **Redis** | Redis 8 | Кеш результатов, статусы запросов |
 | **PostgreSQL** | PostgreSQL 16 | Хранение пользователей |
 | **LocalStack** | LocalStack 4 | SQS, SNS, S3, Transcribe, Cloudformation (локальная разработка) |
-| **OpenFaaS** | OpenFaaS | платформа для FaaS(функций как сервис) |
+| **OpenFaaS** | OpenFaaS | Платформа для FaaS(функций как сервис) |
 | **Prometheus** | Prometheus | Сбор метрик |
 | **AlertManager** | AlertManager | Алерты для автомасштабирования по длине очередей |
 | **cAdvisor** | cAdvisor | Мониторинг нагрузки | 
-| **ArgoCD** | ArgoCD | GitOps деплой |
+| **Grafana stack** | Tempo, Alloy, Grafana, Loki | Визуализация и сохранение мониторинга |
+| **Helm** | Helm | CD |
+| **ArgoCD** | ArgoCD | CD |
 | **Kubernetes** | KinD | Оркестрация |
