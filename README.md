@@ -25,6 +25,7 @@
 | **Neo4j** | Neo4j 5 | Графовая БД |
 | **OpenSearch** | OpenSearch 2.11.0 | Поисковая копия, KNN, нечеткий поиск |
 | **Redis** | Redis 8 | Кеш результатов, статусы запросов |
+| **Liquibase** | Liquibase | Миграции |
 | **PostgreSQL** | PostgreSQL 16 | Хранение пользователей |
 | **LocalStack** | LocalStack 4 | SQS, SNS, S3, Transcribe, Cloudformation (локальная разработка) |
 | **OpenFaaS** | OpenFaaS | Платформа для FaaS(функций как сервис) |
