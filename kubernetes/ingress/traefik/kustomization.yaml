@@ -15,8 +15,8 @@ resources:
 #  --create-namespace \
 #  --set ingressClass.enabled=true \
 #  --set ingressClass.name=traefik \
-#  --set ports.web.port=8099 \
-#  --set service.ports.web=8099 \
-#  --set providers.kubernetesIngress.enabled=true
-#  --set providers.kubernetesCRD.enabled=true \
-#  --set providers.kubernetesIngress.enabled=true
+#  --set service.type=NodePort \
+#  --set service.ports.web.nodePort=32080 \
+#  --set service.ports.websecure.nodePort=32443 \
+#  --set providers.kubernetesIngress.enabled=true \
+#  --set providers.kubernetesCRD.enabled=true
