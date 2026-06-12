@@ -16,7 +16,7 @@
 |-----------|-----------|-----------|
 | **API Gateway** | Traefik | Маршрутизация, обратный прокси |
 | **Auth Service** | Java 17, Spring Boot | Авторизация и аутентификация пользователей |
-| **Map Router** | Java 17, Camel | Маршрутизация запросов внутри системы |
+| **Map Router** | Java 17, Camel, Spring Boot | Маршрутизация запросов внутри системы |
 | **RAG Agent** | Python, Llama 3.2 | Преобразование текста в параметры |
 | **Map FaaS** | Go, OpenFaaS | Маршруты, Neo4j, OpenSearch, SNS |
 | **Sync FaaS** | Go, OpenFaaS | Синхронизация Neo4j и OpenSearch |
@@ -25,11 +25,14 @@
 | **Neo4j** | Neo4j 5 | Графовая БД |
 | **OpenSearch** | OpenSearch 2.11.0 | Поисковая копия, KNN, нечеткий поиск |
 | **Redis** | Redis 8 | Кеш результатов, статусы запросов |
+| **Liquibase** | Liquibase | Миграции |
 | **PostgreSQL** | PostgreSQL 16 | Хранение пользователей |
 | **LocalStack** | LocalStack 4 | SQS, SNS, S3, Transcribe, Cloudformation (локальная разработка) |
-| **OpenFaaS** | OpenFaaS | платформа для FaaS(функций как сервис) |
+| **OpenFaaS** | OpenFaaS | Платформа для FaaS(функций как сервис) |
 | **Prometheus** | Prometheus | Сбор метрик |
 | **AlertManager** | AlertManager | Алерты для автомасштабирования по длине очередей |
 | **cAdvisor** | cAdvisor | Мониторинг нагрузки | 
-| **ArgoCD** | ArgoCD | GitOps деплой |
+| **Grafana stack** | Tempo, Alloy, Grafana, Loki | Визуализация и сохранение мониторинга |
+| **Helm** | Helm | CD |
+| **ArgoCD** | ArgoCD | CD |
 | **Kubernetes** | KinD | Оркестрация |
