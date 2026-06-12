@@ -25,7 +25,7 @@ async def process_with_llm_and_save(request):
     stored = StoredQuery(
         request_id=request.request_id,
         text=request.text,
-        parsed_query=parsed.dict(),
+        parsed_query=parsed.model_dump(),
         success=True,
         language=request.language
     )

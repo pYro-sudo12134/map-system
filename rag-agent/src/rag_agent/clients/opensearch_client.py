@@ -114,7 +114,7 @@ class OpenSearchClient:
         try:
             vector = embedding_generator.encode(stored.text)
 
-            doc = stored.dict()
+            doc = stored.model_dump()
             doc["text_vector"] = vector
 
             self.client.index(
