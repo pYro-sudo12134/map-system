@@ -44,10 +44,10 @@ info:
 
 logging:
   level:
-    by.losik: DEBUG
-    org.springframework.web: DEBUG
-    org.apache.camel: DEBUG
-    org.apache.camel.component.servlet: DEBUG
+    by.losik: INFO
+    org.springframework.web: INFO
+    org.apache.camel: INFO
+    org.apache.camel.component.servlet: INFO
 
 jwt:
   secret: ${JWT_SECRET:defaultSecretKeyForDevOnly}

@@ -26,10 +26,3 @@ spec:
       ports:
         - protocol: TCP
           port: 4566
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: openfaas-fn
-      ports:
-        - protocol: TCP
-          port: 8080
