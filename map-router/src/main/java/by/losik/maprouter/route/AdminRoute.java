@@ -3,6 +3,15 @@ package by.losik.maprouter.route;
 import by.losik.maprouter.exception.ForbiddenException;
 import by.losik.maprouter.exception.UnauthorizedException;
 import by.losik.maprouter.processor.AdminAuthProcessor;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.StringToClassMapItem;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.camel.Exchange;
@@ -14,6 +23,8 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Tag(name = "Admin", description = "Administrative endpoints for managing data synchronization")
+@SecurityRequirement(name = "adminAuth")
 public class AdminRoute extends RouteBuilder {
 
     private final AdminAuthProcessor adminAuthProcessor;
@@ -77,11 +88,7 @@ public class AdminRoute extends RouteBuilder {
                 .setBody(constant("{\"sync_type\":\"full\"}"))
                 .setHeader(Exchange.CONTENT_TYPE, constant("application/json"))
                 .to("aws2-sqs:%s".formatted(syncQueueName))
-                .process(exchange -> {
-                    exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 202);
-                    exchange.getMessage().setBody("{\"status\":\"full_sync_started\"}");
-                    exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json");
-                });
+                .process(this::handleFullSyncResponse);
 
         from("servlet:/v1/admin/sync/nodes?httpMethodRestrict=POST")
                 .routeId("admin-nodes-sync")
@@ -92,11 +99,7 @@ public class AdminRoute extends RouteBuilder {
                 .setBody(constant("{\"sync_type\":\"nodes\"}"))
                 .setHeader(Exchange.CONTENT_TYPE, constant("application/json"))
                 .to("aws2-sqs:%s".formatted(syncQueueName))
-                .process(exchange -> {
-                    exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 202);
-                    exchange.getMessage().setBody("{\"status\":\"nodes_sync_started\"}");
-                    exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json");
-                });
+                .process(this::handleNodesSyncResponse);
 
         from("servlet:/v1/admin/sync/edges?httpMethodRestrict=POST")
                 .routeId("admin-edges-sync")
@@ -107,10 +110,228 @@ public class AdminRoute extends RouteBuilder {
                 .setBody(constant("{\"sync_type\":\"edges\"}"))
                 .setHeader(Exchange.CONTENT_TYPE, constant("application/json"))
                 .to("aws2-sqs:%s".formatted(syncQueueName))
-                .process(exchange -> {
-                    exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 202);
-                    exchange.getMessage().setBody("{\"status\":\"edges_sync_started\"}");
-                    exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json");
-                });
+                .process(this::handleEdgesSyncResponse);
+    }
+
+    @Operation(
+            summary = "Trigger full synchronization",
+            description = "Initiates a full synchronization of all data (nodes and edges) from the primary data source to the cache.",
+            operationId = "syncFull"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "202",
+                    description = "Full synchronization started successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "status", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"status\":\"full_sync_started\"}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - invalid or missing admin credentials",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "error", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"error\":\"Invalid admin credentials\"}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden - insufficient permissions",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "error", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"error\":\"Access denied\"}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "429",
+                    description = "Rate limit exceeded (max 2 requests per minute)",
+                    content = @Content
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Internal server error",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "error", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"error\":\"Internal server error\"}")
+                    )
+            )
+    })
+    private void handleFullSyncResponse(Exchange exchange) {
+        exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 202);
+        exchange.getMessage().setBody("{\"status\":\"full_sync_started\"}");
+        exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json");
+    }
+
+    @Operation(
+            summary = "Trigger nodes synchronization",
+            description = "Initiates synchronization of nodes only from the primary data source to the cache.",
+            operationId = "syncNodes"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "202",
+                    description = "Nodes synchronization started successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "status", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"status\":\"nodes_sync_started\"}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - invalid or missing admin credentials",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "error", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"error\":\"Invalid admin credentials\"}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden - insufficient permissions",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "error", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"error\":\"Access denied\"}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "429",
+                    description = "Rate limit exceeded (max 10 requests per minute)",
+                    content = @Content
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Internal server error",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "error", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"error\":\"Internal server error\"}")
+                    )
+            )
+    })
+    private void handleNodesSyncResponse(Exchange exchange) {
+        exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 202);
+        exchange.getMessage().setBody("{\"status\":\"nodes_sync_started\"}");
+        exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json");
+    }
+
+    @Operation(
+            summary = "Trigger edges synchronization",
+            description = "Initiates synchronization of edges only from the primary data source to the cache.",
+            operationId = "syncEdges"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "202",
+                    description = "Edges synchronization started successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "status", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"status\":\"edges_sync_started\"}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - invalid or missing admin credentials",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "error", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"error\":\"Invalid admin credentials\"}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden - insufficient permissions",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "error", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"error\":\"Access denied\"}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "429",
+                    description = "Rate limit exceeded (max 10 requests per minute)",
+                    content = @Content
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Internal server error",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    type = "object",
+                                    properties = {
+                                            @StringToClassMapItem(key = "error", value = String.class)
+                                    }
+                            ),
+                            examples = @ExampleObject(value = "{\"error\":\"Internal server error\"}")
+                    )
+            )
+    })
+    private void handleEdgesSyncResponse(Exchange exchange) {
+        exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 202);
+        exchange.getMessage().setBody("{\"status\":\"edges_sync_started\"}");
+        exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json");
     }
 }

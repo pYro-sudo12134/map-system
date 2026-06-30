@@ -89,9 +89,6 @@ rate:
       get-result:
         max-requests: 100
         time-period-ms: 1000
-      per-user:
-        max-requests: 200
-        time-period-ms: 1000
 
 resilience4j:
   circuitbreaker:
