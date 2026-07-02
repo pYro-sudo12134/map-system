@@ -4,11 +4,13 @@ kind: Kustomization
 namespace: ism-mq
 
 resources:
-  - configmap.yaml
+  - configmap-cf.yaml
+  - configmap-tf.yaml
   - pdb.yaml
   - pvc.yaml
   - service.yaml
   - statefulset.yaml
+  - tf-init-job.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
