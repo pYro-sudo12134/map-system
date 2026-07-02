@@ -29,8 +29,11 @@ spec:
               cp /tf-config/* .
               terraform init
               
+              terraform validate
+              
               terraform plan -var="aws_access_key_id=${AWS_ACCESS_KEY_ID}" \
                              -var="aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}" \
+                             -var="account_id=${ACCOUNT_ID}" \
                              -out=plan.tfplan
               
               terraform apply -auto-approve plan.tfplan
@@ -51,6 +54,11 @@ spec:
                 secretKeyRef:
                   name: localstack-secret
                   key: AWS_SECRET_ACCESS_KEY
+            - name: ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: localstack-secret
+                  key: ACCOUNT_ID
             - name: AWS_DEFAULT_REGION
               value: "us-east-1"
           volumeMounts:

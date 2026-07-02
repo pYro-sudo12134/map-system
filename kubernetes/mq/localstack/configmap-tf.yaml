@@ -16,6 +16,7 @@ data:
           version = "~> 3.0"
         }
       }
+      required_version = ">= 1.0"
     }
 
     provider "aws" {
@@ -31,17 +32,16 @@ data:
         s3          = var.endpoint_url
         sqs         = var.endpoint_url
         sns         = var.endpoint_url
-        lambda      = var.endpoint_url
-        iam         = var.endpoint_url
         transcribe  = var.endpoint_url
         sts         = var.endpoint_url
-        cloudformation = var.endpoint_url
+        iam         = var.endpoint_url
       }
     }
 
     resource "aws_s3_bucket" "voice_records" {
       bucket        = "voice-records"
       force_destroy = true
+      tags          = var.common_tags
     }
 
     resource "aws_s3_bucket_versioning" "voice_records" {
@@ -51,75 +51,135 @@ data:
       }
     }
 
+    resource "aws_s3_bucket_public_access_block" "voice_records" {
+      bucket = aws_s3_bucket.voice_records.id
+
+      block_public_acls       = true
+      block_public_policy     = true
+      ignore_public_acls      = true
+      restrict_public_buckets = true
+    }
+
+    resource "aws_s3_bucket_server_side_encryption_configuration" "voice_records" {
+      bucket = aws_s3_bucket.voice_records.id
+
+      rule {
+        apply_server_side_encryption_by_default {
+          sse_algorithm = "AES256"
+        }
+      }
+    }
+
+    resource "aws_s3_bucket_policy" "voice_records_policy" {
+      bucket = aws_s3_bucket.voice_records.id
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Sid       = "DenyInsecureConnections"
+            Effect    = "Deny"
+            Principal = "*"
+            Action    = "s3:*"
+            Resource = [
+              aws_s3_bucket.voice_records.arn,
+              "${aws_s3_bucket.voice_records.arn}/*"
+            ]
+            Condition = {
+              Bool = {
+                "aws:SecureTransport" = "false"
+              }
+            }
+          },
+          {
+            Sid       = "AllowTranscribeAccess"
+            Effect    = "Allow"
+            Principal = {
+              Service = "transcribe.amazonaws.com"
+            }
+            Action = [
+              "s3:GetObject",
+              "s3:PutObject"
+            ]
+            Resource = "${aws_s3_bucket.voice_records.arn}/*"
+          },
+          {
+            Sid       = "AllowAppAccess"
+            Effect    = "Allow"
+            Principal = {
+              AWS = "arn:aws:iam::${var.account_id}:role/app-role"
+            }
+            Action = [
+              "s3:GetObject",
+              "s3:PutObject",
+              "s3:DeleteObject",
+              "s3:ListBucket"
+            ]
+            Resource = [
+              aws_s3_bucket.voice_records.arn,
+              "${aws_s3_bucket.voice_records.arn}/*"
+            ]
+          }
+        ]
+      })
+    }
+
     resource "aws_sqs_queue" "dlq" {
       name                      = "DLQ"
       message_retention_seconds = 1209600
+      max_message_size          = 262144
+      tags                      = var.common_tags
     }
 
-    resource "aws_sqs_queue" "sqs_rag" {
-      name = "SQS_RAG"
-      
-      visibility_timeout_seconds = 60
-      message_retention_seconds  = 345600
-      
+    locals {
+      queues = {
+        sqs_rag     = {
+          name      = "SQS_RAG",
+          timeout   = 60,
+          retention = 345600,
+          max_receive = 3
+        }
+        sqs_go      = {
+          name      = "SQS_GO",
+          timeout   = 60,
+          retention = 345600,
+          max_receive = 3
+        }
+        sqs_results = {
+          name      = "SQS_RESULTS",
+          timeout   = 60,
+          retention = 345600,
+          max_receive = 3
+        }
+        sqs_sync    = {
+          name      = "SQS_SYNC",
+          timeout   = 120,
+          retention = 345600,
+          max_receive = 3
+        }
+      }
+    }
+
+    resource "aws_sqs_queue" "main" {
+      for_each = local.queues
+
+      name                      = "${each.value.name}"
+      visibility_timeout_seconds = each.value.timeout
+      message_retention_seconds  = each.value.retention
+      max_message_size          = 262144
+      delay_seconds             = 0
+      receive_wait_time_seconds = 0
+
       redrive_policy = jsonencode({
         deadLetterTargetArn = aws_sqs_queue.dlq.arn
-        maxReceiveCount     = 3
+        maxReceiveCount     = each.value.max_receive
       })
-    }
 
-    resource "aws_sqs_queue" "sqs_go" {
-      name = "SQS_GO"
-      
-      visibility_timeout_seconds = 60
-      message_retention_seconds  = 345600
-      
-      redrive_policy = jsonencode({
-        deadLetterTargetArn = aws_sqs_queue.dlq.arn
-        maxReceiveCount     = 3
-      })
-    }
-
-    resource "aws_sqs_queue" "sqs_results" {
-      name = "SQS_RESULTS"
-      
-      visibility_timeout_seconds = 60
-      message_retention_seconds  = 345600
-      
-      redrive_policy = jsonencode({
-        deadLetterTargetArn = aws_sqs_queue.dlq.arn
-        maxReceiveCount     = 3
-      })
-    }
-
-    resource "aws_sqs_queue" "sqs_sync" {
-      name = "SQS_SYNC"
-      
-      visibility_timeout_seconds = 120
-      message_retention_seconds  = 345600
-      
-      redrive_policy = jsonencode({
-        deadLetterTargetArn = aws_sqs_queue.dlq.arn
-        maxReceiveCount     = 3
-      })
-    }
-
-    resource "aws_sns_topic" "ism_topic" {
-      name = "ISM_Topic"
-    }
-
-    # Подписка SQS на SNS
-    resource "aws_sns_topic_subscription" "sqs_results_subscription" {
-      topic_arn = aws_sns_topic.ism_topic.arn
-      protocol  = "sqs"
-      endpoint  = aws_sqs_queue.sqs_results.arn
-      
-      raw_message_delivery = true
+      tags = var.common_tags
     }
 
     resource "aws_sqs_queue_policy" "sqs_results_policy" {
-      queue_url = aws_sqs_queue.sqs_results.id
-      
+      queue_url = aws_sqs_queue.main["sqs_results"].id
+
       policy = jsonencode({
         Version = "2012-10-17"
         Statement = [
@@ -129,7 +189,7 @@ data:
               Service = "sns.amazonaws.com"
             }
             Action = "sqs:SendMessage"
-            Resource = aws_sqs_queue.sqs_results.arn
+            Resource = aws_sqs_queue.main["sqs_results"].arn
             Condition = {
               ArnEquals = {
                 "aws:SourceArn" = aws_sns_topic.ism_topic.arn
@@ -140,32 +200,157 @@ data:
       })
     }
 
+    resource "aws_sns_topic" "ism_topic" {
+      name = "ISM_Topic"
+      tags = var.common_tags
+
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Effect = "Allow"
+            Principal = {
+              Service = "transcribe.amazonaws.com"
+            }
+            Action = "sns:Publish"
+            Resource = "*"
+          }
+        ]
+      })
+    }
+
+    resource "aws_sns_topic_subscription" "sqs_results_subscription" {
+      topic_arn = aws_sns_topic.ism_topic.arn
+      protocol  = "sqs"
+      endpoint  = aws_sqs_queue.main["sqs_results"].arn
+
+      raw_message_delivery = true
+    }
+
+    resource "aws_iam_policy" "app_s3_policy" {
+      name        = "app-s3-policy-${var.environment}"
+      description = "Policy for on-premise application S3 access"
+
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Effect = "Allow"
+            Action = [
+              "s3:GetObject",
+              "s3:PutObject",
+              "s3:DeleteObject",
+              "s3:ListBucket"
+            ]
+            Resource = [
+              aws_s3_bucket.voice_records.arn,
+              "${aws_s3_bucket.voice_records.arn}/*"
+            ]
+          }
+        ]
+      })
+    }
+
+    resource "aws_iam_policy" "app_sqs_policy" {
+      name        = "app-sqs-policy-${var.environment}"
+      description = "Policy for on-premise application SQS access"
+
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Effect = "Allow"
+            Action = [
+              "sqs:ReceiveMessage",
+              "sqs:DeleteMessage",
+              "sqs:GetQueueAttributes",
+              "sqs:ChangeMessageVisibility",
+              "sqs:SendMessage"
+            ]
+            Resource = [
+              aws_sqs_queue.main["sqs_rag"].arn,
+              aws_sqs_queue.main["sqs_go"].arn,
+              aws_sqs_queue.main["sqs_results"].arn,
+              aws_sqs_queue.main["sqs_sync"].arn,
+              aws_sqs_queue.dlq.arn
+            ]
+          }
+        ]
+      })
+    }
+
+    resource "aws_iam_policy" "app_sns_policy" {
+      name        = "app-sns-policy-${var.environment}"
+      description = "Policy for on-premise application SNS access"
+
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Effect = "Allow"
+            Action = "sns:Publish"
+            Resource = aws_sns_topic.ism_topic.arn
+          }
+        ]
+      })
+    }
+
     output "s3_bucket" {
       value = aws_s3_bucket.voice_records.bucket
     }
 
+    output "s3_bucket_arn" {
+      value = aws_s3_bucket.voice_records.arn
+    }
+
     output "sqs_rag_url" {
-      value = aws_sqs_queue.sqs_rag.url
+      value = aws_sqs_queue.main["sqs_rag"].url
+    }
+
+    output "sqs_rag_arn" {
+      value = aws_sqs_queue.main["sqs_rag"].arn
     }
 
     output "sqs_go_url" {
-      value = aws_sqs_queue.sqs_go.url
+      value = aws_sqs_queue.main["sqs_go"].url
     }
 
     output "sqs_results_url" {
-      value = aws_sqs_queue.sqs_results.url
+      value = aws_sqs_queue.main["sqs_results"].url
     }
 
     output "sqs_sync_url" {
-      value = aws_sqs_queue.sqs_sync.url
+      value = aws_sqs_queue.main["sqs_sync"].url
     }
 
     output "dlq_url" {
       value = aws_sqs_queue.dlq.url
     }
 
+    output "dlq_arn" {
+      value = aws_sqs_queue.dlq.arn
+    }
+
     output "sns_topic_arn" {
       value = aws_sns_topic.ism_topic.arn
+    }
+
+    output "app_s3_policy_arn" {
+      value = aws_iam_policy.app_s3_policy.arn
+    }
+
+    output "app_sqs_policy_arn" {
+      value = aws_iam_policy.app_sqs_policy.arn
+    }
+
+    output "app_sns_policy_arn" {
+      value = aws_iam_policy.app_sns_policy.arn
+    }
+
+    output "all_queue_urls" {
+      value = {
+      for k, q in aws_sqs_queue.main : k => q.url
+      }
     }
 
   variables.tf: |
@@ -193,6 +378,35 @@ data:
       default     = "http://localstack.ism-mq.svc.cluster.local:4566"
     }
 
+    variable "environment" {
+      description = "Environment name"
+      type        = string
+      default     = "dev"
+    }
+
+    variable "account_id" {
+      description = "AWS Account ID"
+      type        = string
+      default     = "000000000000"
+    }
+
+    variable "common_tags" {
+      description = "Common tags for all resources"
+      type        = map(string)
+      default = {
+        Project     = "ISM-MQ"
+        ManagedBy   = "Terraform"
+        Environment = "dev"
+      }
+    }
+
   terraform.tfvars: |
-    aws_region = "us-east-1"
-    endpoint_url = "http://localstack.ism-mq.svc.cluster.local:4566"
+    aws_region    = "us-east-1"
+    endpoint_url  = "http://localstack.ism-mq.svc.cluster.local:4566"
+    environment   = "dev"
+    
+    common_tags = {
+      Project     = "ISM-MQ"
+      ManagedBy   = "Terraform"
+      Environment = "dev"
+    }
