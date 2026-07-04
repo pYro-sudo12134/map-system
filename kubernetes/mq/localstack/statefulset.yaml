@@ -54,7 +54,7 @@ spec:
           readOnlyRootFilesystem: false
         env:
         - name: SERVICES
-          value: sqs,sns,s3,cloudformation,transcribe,sts,iam
+          value: sqs,sns,s3,cloudformation,transcribe,sts,iam,kms
         - name: AWS_DEFAULT_REGION
           value: us-east-1
         - name: AWS_ACCESS_KEY_ID
