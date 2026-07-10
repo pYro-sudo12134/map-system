@@ -35,4 +35,5 @@
 | **Grafana stack** | Tempo, Alloy, Grafana, Loki | Визуализация и сохранение мониторинга |
 | **Helm** | Helm | CD |
 | **ArgoCD** | ArgoCD | CD |
-| **Kubernetes** | KinD | Оркестрация |
+| **Kubernetes** | KinD/K3s | Оркестрация |
+| **Terraform** | Terraform 1.15.5 | Возможность развертывания ресурсов вне кластера |
