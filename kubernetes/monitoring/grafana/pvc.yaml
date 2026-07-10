@@ -4,7 +4,7 @@ metadata:
   name: grafana-pvc
   namespace: monitoring
 spec:
-  storageClassName: zfs-local
+  storageClassName: longhorn
   accessModes:
     - ReadWriteOnce
   resources:

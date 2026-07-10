@@ -4,7 +4,7 @@ metadata:
   name: opensearch-pvc
   namespace: database
 spec:
-  storageClassName: local-path
+  storageClassName: longhorn
   accessModes:
     - ReadWriteOnce
   resources:

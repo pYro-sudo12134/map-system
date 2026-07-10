@@ -4,7 +4,7 @@ metadata:
   name: rag-pvc
   namespace: ism-rag
 spec:
-  storageClassName: local-path
+  storageClassName: longhorn
   accessModes:
     - ReadWriteOnce
   resources:

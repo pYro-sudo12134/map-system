@@ -89,7 +89,7 @@ spec:
         name: models
         namespace: ism-rag
       spec:
-        storageClassName: local-path
+        storageClassName: longhorn
         accessModes:
           - ReadWriteOnce
         resources:

@@ -3,3 +3,5 @@ kind: Kustomization
 
 resources:
   - storageclass.yaml
+
+#  helm install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --version 1.11.2
