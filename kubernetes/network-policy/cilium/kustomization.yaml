@@ -15,6 +15,7 @@ resources:
   - rag-agent-np.yaml
   - ingress-allow.yaml
   - ingress-to-system.yaml
+  - egress-to-world.yaml
 
 # helm repo add cilium https://helm.cilium.io/
-# helm install cilium cilium/cilium --namespace kube-system
+#  helm install cilium cilium/cilium --namespace kube-system --set egressGateway.enabled=true --set bpf.masquerade=true --set kubeProxyReplacement=true --set encryption.enabled=true --set encryption.type=wireguard --set ingressController.defaultSecretNamespace=kube-system --set ingressController.defaultSecretName=default-cert --set envoy.enabled=true --set ingressController.enabled=true --set ingressController.default=true --set ingressController.loadbalancerMode=shared --set envoy.enabled=true --set envoyConfig.enabled=true

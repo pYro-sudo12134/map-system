@@ -1,0 +1,36 @@
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  name: aws-egress-gateway
+spec:
+  selectors:
+    - podSelector:
+        matchExpressions:
+          - key: app
+            operator: In
+            values:
+              - rag-agent
+              - map-router
+              - auth-service
+              - sync-operator
+              - go-operator
+              - terraform-init
+
+      # nodeSelector:
+      #   matchLabels:
+      #     node-role.kubernetes.io/worker: "true"
+  destinationCIDRs:
+    - "0.0.0.0/0"
+
+  excludedCIDRs:
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+    - "192.168.0.0/16"
+    - "172.65.0.0/16"
+
+  egressGateway:
+    nodeSelector: {}
+    # nodeSelector:
+    #   matchLabels:
+    #     node-role.kubernetes.io/egress-gateway: "true"
+    interface: eth0

@@ -1,0 +1,81 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideEnvoyConfig
+metadata:
+  name: ingress-ratelimit
+  namespace: ingress
+spec:
+  services:
+    - name: cilium-ingress
+      namespace: kube-system
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: ingress-listener
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8080
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                rds:
+                  route_config_name: ingress-route
+                http_filters:
+                  - name: envoy.filters.http.local_ratelimit
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+                      stat_prefix: http_local_rate_limiter
+                      token_bucket:
+                        max_tokens: 100
+                        tokens_per_fill: 100
+                        fill_interval: 60s
+                      filter_enabled:
+                        default_value:
+                          numerator: 100
+                          denominator: HUNDRED
+                      filter_enforced:
+                        default_value:
+                          numerator: 100
+                          denominator: HUNDRED
+                      response_headers_to_add:
+                        - header:
+                            key: X-RateLimit-Limit
+                            value: "100 per minute"
+                        - header:
+                            key: X-RateLimit-Remaining
+                            value: "0"
+                      failure_mode_deny: false
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+#    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+#      name: ingress-route
+#      virtual_hosts:
+#        - name: default-host
+#          domains: ["*"]
+#          routes:
+#            - match:
+#                prefix: "/api/v1/auth"
+#              route:
+#                cluster: "kube-system/cilium-ingress"
+#            - match:
+#                prefix: "/v1"
+#              route:
+#                cluster: "kube-system/cilium-ingress"
+#            - match:
+#                prefix: "/api/v1"
+#              route:
+#                cluster: "kube-system/cilium-ingress"
+#            - match:
+#                prefix: "/"
+#              route:
+#                cluster: "kube-system/cilium-ingress"
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      name: "kube-system/cilium-ingress"
+      connect_timeout: 5s
+      lb_policy: ROUND_ROBIN
+      type: EDS
+      edsClusterConfig:
+        serviceName: kube-system/cilium-ingress

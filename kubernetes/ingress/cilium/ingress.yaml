@@ -1,0 +1,39 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ism-ingress-cilium
+  namespace: ingress
+  annotations:
+    ingress.cilium.io/loadbalancer-mode: "shared"
+    ingress.cilium.io/request-timeout: "60"
+    # ingress.cilium.io/service-type: "NodePort"
+    # ingress.cilium.io/force-https: "enabled"
+    ingress.cilium.io/force-https: "enabled"
+spec:
+  ingressClassName: cilium
+  tls:
+    - hosts:
+        - localhost
+        - "*.ism.local"
+      secretName: ism-tls-secret
+  rules:
+    - host: localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8081
+    - host: localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: map-router
+                port:
+                  number: 8082
