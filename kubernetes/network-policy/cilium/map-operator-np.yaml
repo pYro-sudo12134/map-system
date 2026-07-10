@@ -1,0 +1,25 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: go-operator-network-policy
+  namespace: ism-system
+spec:
+  endpointSelector:
+    matchLabels:
+      app: go-operator
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: prometheus
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            app: localstack
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP

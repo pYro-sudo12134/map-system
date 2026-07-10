@@ -1,0 +1,17 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: redis-network-policy
+  namespace: database
+spec:
+  endpointSelector:
+    matchLabels:
+      app: redis
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: map-router
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP

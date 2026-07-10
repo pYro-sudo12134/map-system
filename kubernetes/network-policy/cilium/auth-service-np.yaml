@@ -1,0 +1,32 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "auth-service-policy"
+  namespace: ism-system
+spec:
+  endpointSelector:
+    matchLabels:
+      app: auth-service
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: traefik
+      toPorts:
+        - ports:
+            - port: "8081"
+              protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            app: postgres
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP

@@ -1,0 +1,17 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgres-network-policy
+  namespace: database
+spec:
+  endpointSelector:
+    matchLabels:
+      app: postgres
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: auth-service
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP

@@ -1,0 +1,52 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: localstack-network-policy
+  namespace: ism-mq
+spec:
+  endpointSelector:
+    matchLabels:
+      app: localstack
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: go-operator
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app: sync-operator
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app: map-router
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app: rag-agent
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            faas_function: faas-m
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            faas_function: faas-s
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP

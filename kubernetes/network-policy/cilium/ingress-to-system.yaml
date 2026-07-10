@@ -1,0 +1,24 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: ingress-egress-to-system
+  namespace: ingress
+spec:
+  endpointSelector:
+    matchLabels:
+      app: traefik
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            app: auth-service
+      toPorts:
+        - ports:
+            - port: "8081"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: map-router
+      toPorts:
+        - ports:
+            - port: "8082"
+              protocol: TCP

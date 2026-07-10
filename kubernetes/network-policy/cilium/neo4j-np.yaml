@@ -1,0 +1,31 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: neo4j-network-policy
+  namespace: database
+spec:
+  endpointSelector:
+    matchLabels:
+      app: neo4j
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            faas_function: faas-m
+      toPorts:
+        - ports:
+            - port: "7687"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            faas_function: faas-s
+      toPorts:
+        - ports:
+            - port: "7687"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app: traefik
+      toPorts:
+        - ports:
+            - port: "7474"
+              protocol: TCP

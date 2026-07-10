@@ -1,0 +1,48 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: rag-network-policy
+  namespace: ism-rag
+spec:
+  endpointSelector:
+    matchLabels:
+      app: rag-agent
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "80"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: localstack
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: opensearch
+      toPorts:
+        - ports:
+            - port: "9200"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: ollama
+      toPorts:
+        - ports:
+            - port: "11434"
+              protocol: TCP

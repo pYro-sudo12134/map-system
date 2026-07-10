@@ -13,3 +13,4 @@ resources:
   - sync-operator-np.yaml
   - rag-agent-np.yaml
   - ingress-allow.yaml
+  - ingress-to-system.yaml

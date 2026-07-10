@@ -1,0 +1,62 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "map-router-policy"
+  namespace: ism-system
+spec:
+  endpointSelector:
+    matchLabels:
+      app: map-router
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: traefik
+      toPorts:
+        - ports:
+            - port: "8082"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app: auth-service
+      toPorts:
+        - ports:
+            - port: "8082"
+              protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: redis
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: localstack
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            faas_function: faas-m
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            faas_function: faas-s
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP

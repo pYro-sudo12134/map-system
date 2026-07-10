@@ -1,0 +1,38 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: opensearch-network-policy
+  namespace: database
+spec:
+  endpointSelector:
+    matchLabels:
+      app: opensearch
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            faas_function: faas-m
+      toPorts:
+        - ports:
+            - port: "9200"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            faas_function: faas-s
+      toPorts:
+        - ports:
+            - port: "9200"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app: rag-agent
+      toPorts:
+        - ports:
+            - port: "9200"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app: prometheus
+      toPorts:
+        - ports:
+            - port: "9600"
+              protocol: TCP
