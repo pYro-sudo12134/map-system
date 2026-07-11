@@ -37,3 +37,4 @@
 | **ArgoCD** | ArgoCD | CD |
 | **Kubernetes** | KinD/K3s | Оркестрация |
 | **Terraform** | Terraform 1.15.5 | Возможность развертывания ресурсов вне кластера |
+| **Longhorn** | Longhorn | Менеджер томов, бекапы |
