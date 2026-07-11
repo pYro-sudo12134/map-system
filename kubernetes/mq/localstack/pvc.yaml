@@ -4,9 +4,9 @@ metadata:
   name: localstack-pvc
   namespace: ism-mq
 spec:
-  storageClassName: longhorn
+  storageClassName: hostpath
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 5Gi
+      storage: 30Gi

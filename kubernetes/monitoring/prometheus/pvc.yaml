@@ -3,8 +3,10 @@ kind: PersistentVolumeClaim
 metadata:
   name: prometheus-pvc
   namespace: monitoring
+  annotations:
+    recurring-job.longhorn.io/monitoring-backups: "enabled"
 spec:
-  storageClassName: longhorn
+  storageClassName: longhorn-custom
   accessModes:
     - ReadWriteOnce
   resources:

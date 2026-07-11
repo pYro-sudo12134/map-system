@@ -3,5 +3,9 @@ kind: Kustomization
 
 resources:
   - storageclass.yaml
+  - backup-secret.yaml
+  - backup-target.yaml
+  - encryption-secret.yaml
+  - recurring-jobs.yaml
 
 #  helm install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --version 1.11.2

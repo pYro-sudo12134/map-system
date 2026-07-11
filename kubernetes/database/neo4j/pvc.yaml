@@ -3,8 +3,10 @@ kind: PersistentVolumeClaim
 metadata:
   name: neo4j-pvc-data
   namespace: database
+  annotations:
+    recurring-job.longhorn.io/database-backups: "enabled"
 spec:
-  storageClassName: longhorn
+  storageClassName: longhorn-custom
   accessModes:
     - ReadWriteOnce
   resources:
@@ -16,8 +18,10 @@ kind: PersistentVolumeClaim
 metadata:
   name: neo4j-pvc-logs
   namespace: database
+  annotations:
+    recurring-job.longhorn.io/database-backups: "enabled"
 spec:
-  storageClassName: longhorn
+  storageClassName: longhorn-custom
   accessModes:
     - ReadWriteOnce
   resources:
@@ -29,8 +33,10 @@ kind: PersistentVolumeClaim
 metadata:
   name: neo4j-pvc-plugins
   namespace: database
+  annotations:
+    recurring-job.longhorn.io/database-backups: "enabled"
 spec:
-  storageClassName: longhorn
+  storageClassName: longhorn-custom
   accessModes:
     - ReadWriteOnce
   resources:

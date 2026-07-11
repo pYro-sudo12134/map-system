@@ -50,3 +50,41 @@ spec:
         - ports:
             - port: "4566"
               protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app: longhorn-manager
+        - matchLabels:
+            app: longhorn-csi-plugin
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: localstack-allow-dns
+  namespace: ism-mq
+spec:
+  endpointSelector:
+    matchLabels:
+      app: localstack
+  egress:
+    - toServices:
+        - k8sService:
+            serviceName: kube-dns
+            namespace: kube-system
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "80"
+              protocol: TCP

@@ -16,6 +16,26 @@ resources:
   - ingress-allow.yaml
   - ingress-to-system.yaml
   - egress-to-world.yaml
+  - longhorn-allow.yaml
+  - longhorn-out.yaml
 
-# helm repo add cilium https://helm.cilium.io/
-#  helm install cilium cilium/cilium --namespace kube-system --set egressGateway.enabled=true --set bpf.masquerade=true --set kubeProxyReplacement=true --set encryption.enabled=true --set encryption.type=wireguard --set ingressController.defaultSecretNamespace=kube-system --set ingressController.defaultSecretName=default-cert --set envoy.enabled=true --set ingressController.enabled=true --set ingressController.default=true --set ingressController.loadbalancerMode=shared --set envoy.enabled=true --set envoyConfig.enabled=true
+#  helm repo add cilium https://helm.cilium.io/
+#  helm install cilium cilium/cilium \
+#    --namespace kube-system \
+#    --set egressGateway.enabled=true \
+#    --set bpf.masquerade=true \
+#    --set kubeProxyReplacement=true \
+#    --set encryption.enabled=true \
+#    --set encryption.type=wireguard \
+#    --set ingressController.defaultSecretNamespace=kube-system \
+#    --set ingressController.defaultSecretName=default-cert \
+#    --set envoy.enabled=true \
+#    --set ingressController.enabled=true \
+#    --set ingressController.default=true \
+#    --set ingressController.loadbalancerMode=shared \
+#    --set envoy.enabled=true \
+#    --set envoyConfig.enabled=true \
+#    --set hubble.enabled=true \
+#    --set hubble.ui.enabled=true \
+#    --set hubble.relay.enabled=true \
+#    --set hubble.metrics.enable='{dns,drop,tcp,flow,icmp,http}'

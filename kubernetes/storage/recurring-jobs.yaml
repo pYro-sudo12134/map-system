@@ -1,0 +1,47 @@
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: database-backup
+  namespace: longhorn-system
+spec:
+  cron: "0 2 * * *"
+  task: "backup"
+  retain: 7
+  groups:
+    - database-backups
+---
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: monitoring-backup
+  namespace: longhorn-system
+spec:
+  cron: "0 4 * * *"
+  task: "backup"
+  retain: 14
+  groups:
+    - monitoring-backups
+---
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: rag-backup
+  namespace: longhorn-system
+spec:
+  cron: "0 1 * * *"
+  task: "backup"
+  retain: 3
+  groups:
+    - rag-backups
+---
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: system-backup
+  namespace: longhorn-system
+spec:
+  cron: "0 3 * * *"
+  task: "backup"
+  retain: 7
+  groups:
+    - system-backups

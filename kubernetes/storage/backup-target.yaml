@@ -1,0 +1,8 @@
+apiVersion: longhorn.io/v1beta2
+kind: BackupTarget
+metadata:
+  name: s3-backup-target
+  namespace: longhorn-system
+spec:
+  backupTargetURL: "s3://my-backup-bucket@us-east-1/ism-backups"
+  credentialSecret: s3-backup-secret
