@@ -15,8 +15,8 @@
 | Компонент | Технология | Назначение |
 |-----------|-----------|-----------|
 | **Network** | Traefik, Cilium, Envoy | Политики сетей и шлюзы |
-| **Auth Service** | Java 17, Spring Boot | Авторизация и аутентификация пользователей |
-| **Map Router** | Java 17, Camel, Spring Boot | Маршрутизация запросов внутри системы |
+| **Auth Service** | Java 21, Spring Boot | Авторизация и аутентификация пользователей |
+| **Map Router** | Java 21, Camel, Spring Boot | Маршрутизация запросов внутри системы |
 | **RAG Agent** | Python, Llama 3.2 | Преобразование текста в параметры |
 | **Map FaaS** | Go, OpenFaaS | Маршруты, Neo4j, OpenSearch, SNS |
 | **Sync FaaS** | Go, OpenFaaS | Синхронизация Neo4j и OpenSearch |
