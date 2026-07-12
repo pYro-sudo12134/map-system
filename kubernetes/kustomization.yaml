@@ -12,3 +12,6 @@ resources:
   - admission-policies
   - monitoring
   - storage
+
+# helm repo add bitnami https://charts.bitnami.com/bitnami
+# helm install sealed-secrets bitnami/sealed-secrets --namespace kube-system --set fullnameOverride=sealed-secrets

@@ -12,8 +12,11 @@ serviceAccount:
   automount: false
 mapOperator:
   secrets:
-    awsAccessKeyId: test
-    awsSecretAccessKey: test
+    sealedSecrets:
+      enabled: true
+      encryptedData:
+        awsAccessKeyId: "CHANGE_ME"
+        awsSecretAccessKey: "CHANGE_ME"
   nodeSelector: {}
   operator:
     containerSecurityContext:

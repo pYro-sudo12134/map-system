@@ -15,8 +15,6 @@ spec:
               - sync-operator
               - go-operator
               - terraform-init
-    - podSelector:
-        matchExpressions:
           - key: app
             operator: NotIn
             values:

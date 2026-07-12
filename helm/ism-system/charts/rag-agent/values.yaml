@@ -5,8 +5,11 @@ serviceAccount:
   automount: false
 agent:
   secrets:
-    awsAccessKeyId: CHANGE_ME
-    awsSecretAccessKey: CHANGE_ME
+    sealedSecrets:
+      enabled: true
+      encryptedData:
+        awsAccessKeyId: "CHANGE_ME"
+        awsSecretAccessKey: "CHANGE_ME"
   nodeSelector: {}
   podSecurityContext:
     fsGroup: 1000

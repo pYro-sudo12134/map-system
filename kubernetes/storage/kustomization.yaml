@@ -7,5 +7,6 @@ resources:
   - backup-target.yaml
   - encryption-secret.yaml
   - recurring-jobs.yaml
+  - rbac.yaml
 
 #  helm install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --version 1.11.2

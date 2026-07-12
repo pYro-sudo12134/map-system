@@ -15,10 +15,13 @@ serviceAccount:
   automount: false
 router:
   secrets:
-    redisPassword: CHANGE_ME
-    awsAccessKeyId: CHANGE_ME
-    awsSecretAccessKey: CHANGE_ME
-    jwtSecret: CHANGE_ME_AT_LEAST_32_CHARS
+    sealedSecrets:
+      enabled: true
+      encryptedData:
+        redisPassword: "CHANGE_ME"
+        jwtSecret: "CHANGE_ME"
+        awsAccessKeyId: "CHANGE_ME"
+        awsSecretAccessKey: "CHANGE_ME"
   mapRouter:
     containerSecurityContext:
       allowPrivilegeEscalation: false

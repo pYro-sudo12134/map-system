@@ -15,10 +15,12 @@ serviceAccount:
   annotations: {}
   automount: false
 service:
-  secrets:
-    dbPassword: "CHANGE_ME"
-    jwtSecret: "CHANGE_ME_AT_LEAST_32_CHARS"
   authService:
+    sealedSecrets:
+      enabled:
+      encryptedData:
+        dbPassword: "CHANGE_ME"
+        jwtSecret: "CHANGE_ME"
     containerSecurityContext:
       allowPrivilegeEscalation: false
       capabilities:

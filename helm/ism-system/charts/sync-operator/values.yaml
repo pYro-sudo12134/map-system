@@ -14,8 +14,11 @@ serviceAccount:
   automount: false
 syncOperator:
   secrets:
-    awsAccessKeyId: test
-    awsSecretAccessKey: test
+    sealedSecrets:
+      enabled: true
+      encryptedData:
+        awsAccessKeyId: "CHANGE_ME"
+        awsSecretAccessKey: "CHANGE_ME"
   serviceAccount:
     create: true
     name: sync-operator-sa
