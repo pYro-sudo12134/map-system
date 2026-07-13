@@ -23,3 +23,11 @@ spec:
         - ports:
             - port: "4566"
               protocol: TCP
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "80"
+              protocol: TCP

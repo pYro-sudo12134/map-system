@@ -10,14 +10,7 @@ spec:
   ingress:
     - fromEndpoints:
         - matchLabels:
-            app: traefik
-      toPorts:
-        - ports:
-            - port: "8082"
-              protocol: TCP
-    - fromEndpoints:
-        - matchLabels:
-            app: auth-service
+            app: cilium
       toPorts:
         - ports:
             - port: "8082"
@@ -31,6 +24,14 @@ spec:
             - port: "53"
               protocol: UDP
             - port: "53"
+              protocol: TCP
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "80"
               protocol: TCP
     - toEndpoints:
         - matchLabels:

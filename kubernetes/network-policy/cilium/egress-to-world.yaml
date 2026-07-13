@@ -15,11 +15,6 @@ spec:
               - sync-operator
               - go-operator
               - terraform-init
-          - key: app
-            operator: NotIn
-            values:
-              - longhorn-manager
-              - longhorn-csi-plugin
 
       # nodeSelector:
       #   matchLabels:
