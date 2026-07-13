@@ -10,6 +10,9 @@ data:
   OLLAMA_MAX_TOKENS: "500"
   OPENSEARCH_URL: http://opensearch.database.svc.cluster.local:9200
   OPENSEARCH_INDEX: rag_queries
+  OPENSEARCH_USER: admin
+  OPENSEARCH_USE_SSL: "false"
+  OPENSEARCH_VERIFY_CERTS: "false"
   AWS_ENDPOINT_URL: http://localstack.ism-mq.svc.cluster.local:4566
   QUEUE_RAG_URL: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_RAG
   QUEUE_GO_URL: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_GO

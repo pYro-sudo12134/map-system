@@ -29,6 +29,11 @@ spec:
             secretKeyRef:
               key: AWS_SECRET_ACCESS_KEY
               name: {{ include "rag-agent.fullname" . }}-secrets
+        - name: OPENSEARCH_PASSWORD  # Добавляем
+          valueFrom:
+            secretKeyRef:
+              key: OPENSEARCH_PASSWORD
+              name: {{ include "rag-agent.fullname" . }}-secrets
         - name: TORCH_HOME
           value: {{ quote .Values.agent.ragAgent.env.torchHome }}
         - name: TORCHINDUCTOR_CACHE_DIR

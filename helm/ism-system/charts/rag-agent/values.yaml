@@ -10,6 +10,7 @@ agent:
       encryptedData:
         awsAccessKeyId: "CHANGE_ME"
         awsSecretAccessKey: "CHANGE_ME"
+        opensearchPassword: "CHANGE_ME"
   nodeSelector: {}
   podSecurityContext:
     fsGroup: 1000
@@ -64,6 +65,9 @@ config:
   ollamaTemperature: "0.1"
   ollamaUrl: http://ollama.ism-rag.svc.cluster.local:11434
   opensearchIndex: rag_queries
+  opensearchUser: admin
+  opensearchUseSsl: "false"
+  opensearchVerifyCerts: "false"
   opensearchUrl: http://opensearch.database.svc.cluster.local:9200
   queueGoUrl: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_GO
   queueRagUrl: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_RAG

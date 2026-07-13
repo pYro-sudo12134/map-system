@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -18,6 +19,10 @@ class Settings(BaseSettings):
 
     opensearch_url: str = "http://opensearch:9200"
     opensearch_index: str = "rag_queries"
+    opensearch_user: str = "admin"
+    opensearch_password: str = ""
+    opensearch_use_ssl: bool = False
+    opensearch_verify_certs: bool = False
 
     similarity_threshold: float = 0.85
     knn_size: int = 5

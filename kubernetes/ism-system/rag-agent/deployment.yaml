@@ -69,6 +69,11 @@ spec:
                 secretKeyRef:
                   name: rag-secrets
                   key: AWS_SECRET_ACCESS_KEY
+            - name: OPENSEARCH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: OPENSEARCH_PASSWORD
             - name: TORCH_HOME
               value: /tmp/torch
             - name: TORCHINDUCTOR_CACHE_DIR

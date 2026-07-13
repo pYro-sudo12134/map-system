@@ -13,13 +13,21 @@ class OpenSearchClient:
         self.index_name = settings.opensearch_index
 
     def connect(self):
-        self.client = OpenSearch(
-            hosts=[settings.opensearch_url],
-            http_compress=True,
-            use_ssl=False,
-            verify_certs=False,
-            timeout=30
-        )
+        connection_params = {
+            "hosts": [settings.opensearch_url],
+            "http_compress": True,
+            "use_ssl": settings.opensearch_use_ssl,
+            "verify_certs": settings.opensearch_verify_certs,
+            "timeout": 30
+        }
+
+        if settings.opensearch_password:
+            connection_params["http_auth"] = (settings.opensearch_user, settings.opensearch_password)
+            logger.info(f"Connecting to OpenSearch with authentication: {settings.opensearch_user}")
+        else:
+            logger.warning("Connecting to OpenSearch WITHOUT authentication (insecure)")
+
+        self.client = OpenSearch(**connection_params)
         logger.info(f"Connected to OpenSearch: {settings.opensearch_url}")
         self._create_index_if_not_exists()
 
