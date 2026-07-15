@@ -1,0 +1,1586 @@
+# THIS IS JUST A SANDBOX!!!
+
+unless Vagrant.has_plugin?("vagrant-vyos")
+  system("vagrant plugin install vagrant-vyos")
+end
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "vyos/current"
+  config.vm.guest = :debian
+  
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = 512
+    vb.cpus = 1
+    vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
+    vb.customize ["modifyvm", :id, "--nicpromisc4", "allow-all"]
+    vb.customize ["modifyvm", :id, "--nicpromisc5", "allow-all"]
+    vb.customize ["modifyvm", :id, "--nicpromisc6", "allow-all"]
+    vb.customize ["modifyvm", :id, "--nicpromisc7", "allow-all"]
+    vb.customize ["modifyvm", :id, "--nicpromisc8", "allow-all"]
+  end
+
+  config.vm.network "public_network",
+    bridge: "Hyper-V Virtual Ethernet Adapter",
+    auto_config: false
+
+  def base_config(hostname)
+    return <<-SHELL
+      session_env=$(/bin/cli-shell-api getSessionEnv $$)
+      eval $session_env
+      /bin/cli-shell-api setupSession
+
+      /opt/vyatta/sbin/my_set system host-name #{hostname}
+      /opt/vyatta/sbin/my_set system login user vyos authentication plaintext-password 'VyOS123!'
+      /opt/vyatta/sbin/my_set service ssh port 22
+
+      /opt/vyatta/sbin/my_set system ipv6 enable-forwarding
+
+      /opt/vyatta/sbin/my_set firewall state-policy established action accept
+      /opt/vyatta/sbin/my_set firewall state-policy related action accept
+      /opt/vyatta/sbin/my_set firewall state-policy invalid action drop
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN default-action drop
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 10 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 10 state established enable
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 10 state related enable
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 15 action drop
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 15 protocol tcp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 15 tcp flags SYN
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 15 recent count 5
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 15 recent time 10
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 15 log enable
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 100 action drop
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 100 log enable
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-OUT default-action accept
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL default-action drop
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 10 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 10 state established enable
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 10 state related enable
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 20 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 20 protocol icmp
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 30 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 30 protocol tcp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 30 destination port 22
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 35 action drop
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 35 protocol tcp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 35 destination port 22
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 35 recent count 3
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 35 recent time 60
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 35 log enable
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 40 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 40 protocol udp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 40 destination port 53
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 41 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 41 protocol tcp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 41 destination port 53
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 42 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 42 protocol ipv6-icmp
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 43 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 43 protocol ipv6-icmp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 43 icmpv6 type router-advertisement
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 44 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 44 protocol ipv6-icmp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 44 icmpv6 type router-solicitation
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 45 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 45 protocol ipv6-icmp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 45 icmpv6 type neighbour-advertisement
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 46 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 46 protocol ipv6-icmp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 46 icmpv6 type neighbour-solicitation
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 47 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 47 protocol udp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 47 destination port 546
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 48 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 48 protocol udp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 48 destination port 547
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 100 action drop
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 100 log enable
+
+      for i in 0 1 2 3 4 5 6 7 8; do
+        /opt/vyatta/sbin/my_set interfaces ethernet eth$i firewall in name DEFAULT-IN 2>/dev/null || true
+        /opt/vyatta/sbin/my_set interfaces ethernet eth$i firewall out name DEFAULT-OUT 2>/dev/null || true
+        /opt/vyatta/sbin/my_set interfaces ethernet eth$i firewall local name DEFAULT-LOCAL 2>/dev/null || true
+      done
+    SHELL
+  end
+
+  config.vm.define "R1" do |r1|
+    r1.vm.network "public_network", bridge: "Hyper-V Virtual Ethernet Adapter", auto_config: false
+    r1.vm.network "private_network", ip: "10.0.0.1/29", virtualbox__intnet: "R1_R2", auto_config: false
+    r1.vm.network "private_network", ip: "10.0.1.1/30", virtualbox__intnet: "R1_S1", auto_config: false
+    r1.vm.network "private_network", ip: "10.0.5.1/30", virtualbox__intnet: "R1_DNS", auto_config: false
+    r1.vm.network "private_network", virtualbox__intnet: "TRUNK_NET", auto_config: false
+
+    r1.vm.provision "shell", inline: base_config("R1") + <<-SHELL
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 mode active-backup
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 primary eth0
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth0
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address dhcp
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 description 'WAN-Bond'
+
+      /opt/vyatta/sbin/my_set interfaces bonding bond1 mode 802.3ad
+      /opt/vyatta/sbin/my_set interfaces bonding bond1 member eth1
+      /opt/vyatta/sbin/my_set interfaces bonding bond1 member eth2
+      /opt/vyatta/sbin/my_set interfaces bonding bond1 member eth3
+      /opt/vyatta/sbin/my_set interfaces bonding bond1 description 'Internal-Bond-LACP'
+      /opt/vyatta/sbin/my_set interfaces bonding bond1 address 10.0.0.1/29
+      /opt/vyatta/sbin/my_set interfaces bonding bond1 address 10.0.1.1/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond1 address 10.0.5.1/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond1 address 2001:db8:1::1/64
+      /opt/vyatta/sbin/my_set interfaces bonding bond1 address 2001:db8:2::1/64
+      /opt/vyatta/sbin/my_set interfaces bonding bond1 address 2001:db8:5::1/64
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 description 'TRUNK-PORT'
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 10
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 10 address 192.168.10.1/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 10 address 2001:db8:10::1/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 10 description 'VLAN10-Gateway'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 10 firewall in name DEFAULT-IN
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 10 firewall out name DEFAULT-OUT
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 10 firewall local name DEFAULT-LOCAL
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 20
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 20 address 192.168.20.1/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 20 address 2001:db8:20::1/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 20 description 'VLAN20-Gateway'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 20 firewall in name DEFAULT-IN
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 20 firewall out name DEFAULT-OUT
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 20 firewall local name DEFAULT-LOCAL
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 30
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 30 address 192.168.30.1/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 30 address 2001:db8:30::1/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 30 description 'VLAN30-Gateway'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 30 firewall in name DEFAULT-IN
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 30 firewall out name DEFAULT-OUT
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 vif 30 firewall local name DEFAULT-LOCAL
+
+      /opt/vyatta/sbin/my_set nat source rule 100 source address 10.0.0.0/8
+      /opt/vyatta/sbin/my_set nat source rule 100 translation address masquerade
+      /opt/vyatta/sbin/my_set nat source rule 100 outbound-interface bond0
+
+      /opt/vyatta/sbin/my_set nat source rule 101 source address 192.168.0.0/16
+      /opt/vyatta/sbin/my_set nat source rule 101 translation address masquerade
+      /opt/vyatta/sbin/my_set nat source rule 101 outbound-interface bond0
+
+      /opt/vyatta/sbin/my_set nat source rule 200 source address 2001:db8::/32
+      /opt/vyatta/sbin/my_set nat source rule 200 translation address masquerade
+      /opt/vyatta/sbin/my_set nat source rule 200 outbound-interface bond0
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.0.0/29
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.1.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.5.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.10.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.20.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.30.0/24
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:1::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:2::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:5::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:10::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:20::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:30::/64
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1 md5-key 'VyOS_OSPF_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec spi 256
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp encryption 'aes256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp hash 'sha256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp key 'VyOS_OSPFv3_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospf bfd
+      /opt/vyatta/sbin/my_set protocols ospfv3 bfd
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.0.2
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.0.2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.0.2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.0.2 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:1::2
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:1::2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:1::2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:1::2 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.1.2
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.1.2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.1.2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.1.2 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:2::2
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:2::2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:2::2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:2::2 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.2
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.2 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::2
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::2 multiplier 3
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 interface eth4.10
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 priority 150
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 address 192.168.10.1/24
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 address 2001:db8:10::1/64
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 authentication password 'VRRP_Pass_10!'
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 interface eth4.20
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 priority 100
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 address 192.168.20.1/24
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 address 2001:db8:20::1/64
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 authentication password 'VRRP_Pass_20!'
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 interface eth4.30
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 priority 150
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 address 192.168.30.1/24
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 address 2001:db8:30::1/64
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 authentication password 'VRRP_Pass_30!'
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp1 vrid 1 interface bond1
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp1 vrid 1 priority 150
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp1 vrid 1 address 10.0.0.10/29
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp1 vrid 1 authentication password 'VRRP_Pass_1!'
+
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.10
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.10 prefix 2001:db8:10::/64
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.10 prefix 2001:db8:10::/64 preferred-lifetime 604800
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.10 prefix 2001:db8:10::/64 valid-lifetime 2592000
+
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.20
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.20 prefix 2001:db8:20::/64
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.20 prefix 2001:db8:20::/64 preferred-lifetime 604800
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.20 prefix 2001:db8:20::/64 valid-lifetime 2592000
+
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.30
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.30 prefix 2001:db8:30::/64
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.30 prefix 2001:db8:30::/64 preferred-lifetime 604800
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth4.30 prefix 2001:db8:30::/64 valid-lifetime 2592000
+
+	  /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 5 action accept
+	  /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 5 protocol udp
+	  /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 5 destination port 67
+	  /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 5 source port 68
+
+	  /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 bfd
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 bfd
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 bfd
+
+      mkdir -p /config/wireguard
+      chmod 700 /config/wireguard
+
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 address '10.200.200.1/24'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 address '2001:db8:200::1/64'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 description 'RoadWarrior-VPN-Primary'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 port '51820'
+
+      run generate pki wireguard key-pair install interface wg0
+
+      PUBLIC_KEY=$(show interfaces wireguard wg0 public-key)
+
+      echo "$PUBLIC_KEY" > /config/wireguard/R1-public.key
+
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 peer 'CHANGE_ME_CLIENT_PUBKEY' allowed-ips '10.200.200.2/32'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 peer 'CHANGE_ME_CLIENT_PUBKEY' allowed-ips '2001:db8:200::2/128'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 peer 'CHANGE_ME_CLIENT_PUBKEY' persistent-keepalive '15'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 peer 'CHANGE_ME_CLIENT_PUBKEY' description 'Admin-Laptop'
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 49 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 49 protocol udp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 49 destination port 51820
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 49 description 'WireGuard-Primary'
+
+      /opt/vyatta/sbin/my_set nat source rule 300 source address '10.200.200.0/24'
+      /opt/vyatta/sbin/my_set nat source rule 300 translation address 'masquerade'
+      /opt/vyatta/sbin/my_set nat source rule 300 outbound-interface 'bond0'
+
+      /opt/vyatta/sbin/my_set nat source rule 301 source address '2001:db8:200::/64'
+      /opt/vyatta/sbin/my_set nat source rule 301 translation address 'masquerade'
+      /opt/vyatta/sbin/my_set nat source rule 301 outbound-interface 'bond0'
+
+	  /opt/vyatta/sbin/my_set service dhcp-relay interface eth3.10
+	  /opt/vyatta/sbin/my_set service dhcp-relay interface eth3.20
+	  /opt/vyatta/sbin/my_set service dhcp-relay interface eth3.30
+	  /opt/vyatta/sbin/my_set service dhcp-relay server 10.0.5.10
+	  /opt/vyatta/sbin/my_set service dhcp-relay server 10.0.6.10
+
+      /opt/vyatta/sbin/my_set protocols static route 10.200.200.2/32 next-hop 10.200.200.1
+
+      echo ""
+      echo "========================================="
+      echo "R1 WIREGUARD PRIMARY SERVER"
+      echo "========================================="
+      echo "Public Key: $PUBLIC_KEY"
+      echo "Interface: wg0"
+      echo "Listen Port: 51820"
+      echo "Network: 10.200.200.0/24"
+      echo ""
+      echo "CLIENT CONFIG:"
+      echo ""
+      echo "[Interface]"
+      echo "PrivateKey = <on_client_to_configure>"
+      echo "Address = 10.200.200.2/24"
+      echo "Address = 2001:db8:200::2/64"
+      echo "DNS = 10.0.5.10, 10.0.6.10"
+      echo ""
+      echo "[Peer]"
+      echo "PublicKey = $PUBLIC_KEY"
+      echo "AllowedIPs = 10.0.0.0/8, 192.168.0.0/16, 2001:db8::/32"
+      echo "Endpoint = <host_ip>:51820"
+      echo "PersistentKeepalive = 15"
+      echo "========================================="
+
+      /opt/vyatta/sbin/my_commit
+      /bin/cli-shell-api teardownSession
+    SHELL
+  end
+
+  config.vm.define "R2" do |r2|
+    r2.vm.network "private_network", ip: "10.0.0.2/29", virtualbox__intnet: "R1_R2", auto_config: false
+    r2.vm.network "private_network", ip: "10.0.3.1/30", virtualbox__intnet: "R2_S2", auto_config: false
+    r2.vm.network "private_network", ip: "10.0.6.1/30", virtualbox__intnet: "R2_DNS", auto_config: false
+    r2.vm.network "private_network", virtualbox__intnet: "TRUNK_NET", auto_config: false
+
+    r2.vm.provision "shell", inline: base_config("R2") + <<-SHELL
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 mode 802.3ad
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth0
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth1
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth2
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 description 'Internal-Bond-LACP'
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.0.2/29
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.3.1/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.6.1/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:1::2/64
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:3::1/64
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:6::1/64
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 description 'TRUNK-PORT'
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 10
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 10 address 192.168.10.2/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 10 address 2001:db8:10::2/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 10 description 'VLAN10-Backup'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 10 firewall in name DEFAULT-IN
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 10 firewall out name DEFAULT-OUT
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 10 firewall local name DEFAULT-LOCAL
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 20
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 20 address 192.168.20.2/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 20 address 2001:db8:20::2/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 20 description 'VLAN20-Backup'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 20 firewall in name DEFAULT-IN
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 20 firewall out name DEFAULT-OUT
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 20 firewall local name DEFAULT-LOCAL
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 30
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 30 address 192.168.30.2/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 30 address 2001:db8:30::2/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 30 description 'VLAN30-Backup'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 30 firewall in name DEFAULT-IN
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 30 firewall out name DEFAULT-OUT
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 vif 30 firewall local name DEFAULT-LOCAL
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.0.0/29
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.3.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.6.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.10.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.20.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.30.0/24
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:1::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:3::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:6::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:10::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:20::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:30::/64
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1 md5-key 'VyOS_OSPF_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec spi 256
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp encryption 'aes256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp hash 'sha256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp key 'VyOS_OSPFv3_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospf bfd
+      /opt/vyatta/sbin/my_set protocols ospfv3 bfd
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.0.1
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.0.1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.0.1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.0.1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:1::1
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:1::1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:1::1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:1::1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.3.2
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.3.2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.3.2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.3.2 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:3::2
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:3::2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:3::2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:3::2 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.2
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.2 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::2
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::2 multiplier 3
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 interface eth3.10
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 priority 100
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 address 192.168.10.1/24
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 address 2001:db8:10::1/64
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 authentication password 'VRRP_Pass_10!'
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 interface eth3.20
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 priority 150
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 address 192.168.20.1/24
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 address 2001:db8:20::1/64
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 authentication password 'VRRP_Pass_20!'
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 interface eth3.30
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 priority 100
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 address 192.168.30.1/24
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 address 2001:db8:30::1/64
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 authentication password 'VRRP_Pass_30!'
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp1 vrid 1 interface bond0
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp1 vrid 1 priority 100
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp1 vrid 1 address 10.0.0.10/29
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp1 vrid 1 authentication password 'VRRP_Pass_1!'
+
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.10
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.10 prefix 2001:db8:10::/64
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.10 prefix 2001:db8:10::/64 preferred-lifetime 604800
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.10 prefix 2001:db8:10::/64 valid-lifetime 2592000
+
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.20
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.20 prefix 2001:db8:20::/64
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.20 prefix 2001:db8:20::/64 preferred-lifetime 604800
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.20 prefix 2001:db8:20::/64 valid-lifetime 2592000
+
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.30
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.30 prefix 2001:db8:30::/64
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.30 prefix 2001:db8:30::/64 preferred-lifetime 604800
+      /opt/vyatta/sbin/my_set service router-advertisements interface eth3.30 prefix 2001:db8:30::/64 valid-lifetime 2592000
+
+	  /opt/vyatta/sbin/my_set service dhcp-relay interface eth4.10
+	  /opt/vyatta/sbin/my_set service dhcp-relay interface eth4.20
+	  /opt/vyatta/sbin/my_set service dhcp-relay interface eth4.30
+	  /opt/vyatta/sbin/my_set service dhcp-relay server 10.0.5.10
+	  /opt/vyatta/sbin/my_set service dhcp-relay server 10.0.6.10
+
+	  /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 5 action accept
+	  /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 5 protocol udp
+	  /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 5 destination port 67
+	  /opt/vyatta/sbin/my_set firewall name DEFAULT-IN rule 5 source port 68
+
+	  /opt/vyatta/sbin/my_set interfaces vrrp vrrp10 vrid 10 bfd
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp20 vrid 20 bfd
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp30 vrid 30 bfd
+
+      mkdir -p /config/wireguard
+      chmod 700 /config/wireguard
+
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 address '10.200.201.1/24'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 address '2001:db8:201::1/64'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 description 'RoadWarrior-VPN-Backup'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 port '51820'
+
+      run generate pki wireguard key-pair install interface wg0
+
+      PUBLIC_KEY=$(show interfaces wireguard wg0 public-key)
+
+      echo "$PUBLIC_KEY" > /config/wireguard/R2-public.key
+
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 peer 'CHANGE_ME_CLIENT_PUBKEY' allowed-ips '10.200.200.2/32'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 peer 'CHANGE_ME_CLIENT_PUBKEY' allowed-ips '2001:db8:200::2/128'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 peer 'CHANGE_ME_CLIENT_PUBKEY' persistent-keepalive '15'
+      /opt/vyatta/sbin/my_set interfaces wireguard wg0 peer 'CHANGE_ME_CLIENT_PUBKEY' description 'Admin-Laptop-Backup'
+
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 49 action accept
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 49 protocol udp
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 49 destination port 51820
+      /opt/vyatta/sbin/my_set firewall name DEFAULT-LOCAL rule 49 description 'WireGuard-Backup'
+
+      /opt/vyatta/sbin/my_set nat source rule 300 source address '10.200.200.0/24'
+      /opt/vyatta/sbin/my_set nat source rule 300 translation address 'masquerade'
+      /opt/vyatta/sbin/my_set nat source rule 300 outbound-interface 'bond0'
+
+      /opt/vyatta/sbin/my_set nat source rule 301 source address '2001:db8:200::/64'
+      /opt/vyatta/sbin/my_set nat source rule 301 translation address 'masquerade'
+      /opt/vyatta/sbin/my_set nat source rule 301 outbound-interface 'bond0'
+
+      echo ""
+      echo "========================================="
+      echo "R2 WIREGUARD BACKUP SERVER"
+      echo "========================================="
+      echo "Public Key: $PUBLIC_KEY"
+      echo "Interface: wg0"
+      echo "Listen Port: 51820"
+      echo "Network: 10.200.200.0/24"
+      echo ""
+      echo "[Peer]  # R2-Backup"
+      echo "PublicKey = $PUBLIC_KEY"
+      echo "AllowedIPs = 10.0.0.0/8, 192.168.0.0/16, 2001:db8::/32"
+      echo "Endpoint = <host_ip>:51820"
+      echo "PersistentKeepalive = 15"
+      echo "========================================="
+
+      /opt/vyatta/sbin/my_commit
+      /bin/cli-shell-api teardownSession
+    SHELL
+  end
+
+  config.vm.define "DNS1" do |dns|
+    dns.vm.network "private_network", ip: "10.0.5.2/30", virtualbox__intnet: "R1_DNS", auto_config: false
+    dns.vm.network "private_network", ip: "10.0.6.2/30", virtualbox__intnet: "R2_DNS", auto_config: false
+
+    dns.vm.provision "shell", inline: base_config("DNS1") + <<-SHELL
+      TSIG_KEY=$(openssl rand -base64 32 | tr -d '\n')
+
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 mode active-backup
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 primary eth0
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth0
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth1
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 description 'DNS-Bond'
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.5.2/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.6.2/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:5::2/64
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:6::2/64
+
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 10.0.5.2
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 10.0.6.2
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 127.0.0.1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 10.0.5.10
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 10.0.6.10
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 192.168.10.1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 192.168.20.1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 192.168.30.1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 2001:db8:5::10
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 2001:db8:6::10
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 2001:db8:10::1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 2001:db8:20::1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 2001:db8:30::1
+
+      /opt/vyatta/sbin/my_set service dns forwarding allow-from 10.0.0.0/8
+      /opt/vyatta/sbin/my_set service dns forwarding allow-from 192.168.0.0/16
+      /opt/vyatta/sbin/my_set service dns forwarding allow-from 127.0.0.0/8
+      /opt/vyatta/sbin/my_set service dns forwarding allow-from 2001:db8::/32
+
+      /opt/vyatta/sbin/my_set service dns forwarding cache-size 2000000
+      /opt/vyatta/sbin/my_set service dns forwarding negative-ttl 3600
+      /opt/vyatta/sbin/my_set service dns forwarding timeout 2000
+      /opt/vyatta/sbin/my_set service dns forwarding no-serve-rfc1918
+
+      /opt/vyatta/sbin/my_set service dns forwarding dnssec validate
+      /opt/vyatta/sbin/my_set service dns forwarding dnssec trust-anchor 'dlv.isc.org'
+      /opt/vyatta/sbin/my_set service dns forwarding dnssec trust-anchor 'isc.org'
+
+      /opt/vyatta/sbin/my_set service dns forwarding domain local addnta
+      /opt/vyatta/sbin/my_set service dns forwarding domain 10.in-addr.arpa addnta
+      /opt/vyatta/sbin/my_set service dns forwarding domain 168.192.in-addr.arpa addnta
+      /opt/vyatta/sbin/my_set service dns forwarding domain example.com addnta
+
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 1.1.1.1
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 8.8.8.8
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 9.9.9.9
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 8.8.4.4
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 1.0.0.1
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 2606:4700:4700::1111
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 2001:4860:4860::8888
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 2620:fe::fe
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a dns1 address 10.0.5.2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a dns1 address 10.0.6.2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a dns-vip address 10.0.5.10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a dns-vip address 10.0.6.10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a router1 address 10.0.0.1
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a router2 address 10.0.0.2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a switch1 address 10.0.1.2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a switch2 address 10.0.3.2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a webserver address 192.168.10.100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a mailserver address 192.168.20.100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a db-server address 192.168.30.100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a "@" address 10.0.5.10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a "*.dev" address 192.168.10.200
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a "*.staging" address 192.168.20.200
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa dns1 address 2001:db8:5::2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa dns1 address 2001:db8:6::2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa dns-vip address 2001:db8:5::10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa dns-vip address 2001:db8:6::10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa router1 address 2001:db8:1::1
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa router2 address 2001:db8:1::2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa webserver address 2001:db8:10::100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa mailserver address 2001:db8:20::100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa db-server address 2001:db8:30::100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa "@" address 2001:db8:5::10
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname www target webserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname ftp target webserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname git target webserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname vpn target router1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname mail target mailserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname db target db-server.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records ns "@" target dns1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records ns "@" target dns2.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 1 port 389
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 1 priority 10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 1 weight 10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 1 hostname router1.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 2 port 389
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 2 priority 20
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 2 weight 5
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 2 hostname router2.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _sip._udp entry 1 port 5060
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _sip._udp entry 1 priority 10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _sip._udp entry 1 weight 5
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _sip._udp entry 1 hostname router1.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 0.0.10 target router1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 0.0.10 target router2.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 1.0.10 target switch1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 3.0.10 target switch2.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 2.5.10 target dns1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 2.6.10 target dns2.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 100.10.168.192 target webserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 1.10.168.192 target gw10.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 2.10.168.192 target switch1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 100.20.168.192 target mailserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 1.20.168.192 target gw20.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 2.20.168.192 target switch2.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 100.30.168.192 target db-server.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 1.30.168.192 target gw30.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 2.30.168.192 target s3.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding domain local.lan server 127.0.0.1
+      /opt/vyatta/sbin/my_set service dns forwarding domain local.lan recursion-desired
+      /opt/vyatta/sbin/my_set service dns forwarding domain 10.in-addr.arpa server 127.0.0.1
+      /opt/vyatta/sbin/my_set service dns forwarding domain 168.192.in-addr.arpa server 127.0.0.1
+
+      mkdir -p /config/auth
+      echo "$TSIG_KEY" > /config/auth/ddns.key
+
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local address interface bond0
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local description 'RFC2136 DDNS for local.lan'
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local key /config/auth/ddns.key
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local server 127.0.0.1
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local zone local.lan
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local host-name dns1.local.lan
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local protocol nsupdate
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local ttl 300
+
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse address interface bond0
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse description 'RFC2136 DDNS for reverse zone'
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse key /config/auth/ddns.key
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse server 127.0.0.1
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse zone 10.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse host-name 2.5.10.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse protocol nsupdate
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse ttl 300
+
+      /opt/vyatta/sbin/my_set service dns dynamic interval 300
+
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name dns1.local.lan inet 10.0.5.2
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name dns1.local.lan inet 10.0.6.2
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name dns2.local.lan inet 10.0.5.3
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name dns2.local.lan inet 10.0.6.3
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name router1.local.lan inet 10.0.0.1
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name router2.local.lan inet 10.0.0.2
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name switch1.local.lan inet 10.0.1.2
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name switch2.local.lan inet 10.0.3.2
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name webserver.local.lan inet 192.168.10.100
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name mailserver.local.lan inet 192.168.20.100
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name db-server.local.lan inet 192.168.30.100
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp4 vrid 4 interface bond0
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp4 vrid 4 priority 150
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp4 vrid 4 address 10.0.5.10/30
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp4 vrid 4 address 2001:db8:5::10/64
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp5 vrid 5 interface bond0
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp5 vrid 5 priority 150
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp5 vrid 5 address 10.0.6.10/30
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp5 vrid 5 address 2001:db8:6::10/64
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.5.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.6.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.10.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.20.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.30.0/24
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1 md5-key 'VyOS_OSPF_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:5::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:6::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:10::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:20::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:30::/64
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec spi 256
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp encryption 'aes256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp hash 'sha256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp key 'VyOS_OSPFv3_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospf bfd
+      /opt/vyatta/sbin/my_set protocols ospfv3 bfd
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.1
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::1
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.1
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::1
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::1 multiplier 3
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 default-router 192.168.10.1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 dns-server 10.0.5.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 dns-server 10.0.6.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 dns-server 10.0.5.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 dns-server 10.0.6.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 range 0 start 192.168.10.100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 range 0 stop 192.168.10.200
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-zone local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-zone 168.192.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-update-style interim
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-tsig-key ddns-key
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-tsig-algorithm hmac-sha256
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-update-static yes
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 default-router 192.168.20.1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 dns-server 10.0.5.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 dns-server 10.0.6.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 dns-server 10.0.5.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 dns-server 10.0.6.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 range 0 start 192.168.20.100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 range 0 stop 192.168.20.200
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-zone local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-zone 168.192.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-update-style interim
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-tsig-key ddns-key
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-tsig-algorithm hmac-sha256
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-update-static yes
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 default-router 192.168.30.1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 dns-server 10.0.5.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 dns-server 10.0.6.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 dns-server 10.0.5.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 dns-server 10.0.6.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 range 0 start 192.168.30.100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 range 0 stop 192.168.30.200
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-zone local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-zone 168.192.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-update-style interim
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-tsig-key ddns-key
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-tsig-algorithm hmac-sha256
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-update-static yes
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 default-router 2001:db8:10::1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 dns-server 2001:db8:5::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 dns-server 2001:db8:6::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 range 0 start 2001:db8:10::100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 range 0 stop 2001:db8:10::200
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 prefix-delegation pool PD-VLAN10
+      /opt/vyatta/sbin/my_set service dhcp-server prefix-delegation pool PD-VLAN10 prefix 2001:db8:10::/56
+      /opt/vyatta/sbin/my_set service dhcp-server prefix-delegation pool PD-VLAN10 prefix-length 64
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 default-router 2001:db8:20::1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 dns-server 2001:db8:5::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 dns-server 2001:db8:6::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 range 0 start 2001:db8:20::100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 range 0 stop 2001:db8:20::200
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 default-router 2001:db8:30::1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 dns-server 2001:db8:5::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 dns-server 2001:db8:6::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 range 0 start 2001:db8:30::100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 range 0 stop 2001:db8:30::200
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 prefix-delegation pool PD-VLAN10
+
+      /opt/vyatta/sbin/my_set service router-advertisements interface bond0
+      /opt/vyatta/sbin/my_set service router-advertisements interface bond0 prefix 2001:db8:5::/64
+      /opt/vyatta/sbin/my_set service router-advertisements interface bond0 prefix 2001:db8:6::/64
+
+      /opt/vyatta/sbin/my_commit
+      /bin/cli-shell-api teardownSession
+    SHELL
+  end
+
+  config.vm.define "DNS2" do |dns|
+    dns.vm.network "private_network", ip: "10.0.5.3/30", virtualbox__intnet: "R1_DNS", auto_config: false
+    dns.vm.network "private_network", ip: "10.0.6.3/30", virtualbox__intnet: "R2_DNS", auto_config: false
+
+    dns.vm.provision "shell", inline: base_config("DNS2") + <<-SHELL
+      TSIG_KEY=$(openssl rand -base64 32 | tr -d '\n')
+
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 mode active-backup
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 primary eth0
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth0
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth1
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 description 'DNS-Bond'
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.5.3/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.6.3/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:5::3/64
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:6::3/64
+
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 10.0.5.3
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 10.0.6.3
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 127.0.0.1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 10.0.5.10
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 10.0.6.10
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 192.168.10.1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 192.168.20.1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 192.168.30.1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 2001:db8:5::10
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 2001:db8:6::10
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 2001:db8:10::1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 2001:db8:20::1
+      /opt/vyatta/sbin/my_set service dns forwarding listen-address 2001:db8:30::1
+
+      /opt/vyatta/sbin/my_set service dns forwarding allow-from 10.0.0.0/8
+      /opt/vyatta/sbin/my_set service dns forwarding allow-from 192.168.0.0/16
+      /opt/vyatta/sbin/my_set service dns forwarding allow-from 127.0.0.0/8
+      /opt/vyatta/sbin/my_set service dns forwarding allow-from 2001:db8::/32
+
+      /opt/vyatta/sbin/my_set service dns forwarding cache-size 2000000
+      /opt/vyatta/sbin/my_set service dns forwarding negative-ttl 3600
+      /opt/vyatta/sbin/my_set service dns forwarding timeout 2000
+      /opt/vyatta/sbin/my_set service dns forwarding no-serve-rfc1918
+
+      /opt/vyatta/sbin/my_set service dns forwarding dnssec validate
+      /opt/vyatta/sbin/my_set service dns forwarding dnssec trust-anchor 'dlv.isc.org'
+      /opt/vyatta/sbin/my_set service dns forwarding dnssec trust-anchor 'isc.org'
+
+      /opt/vyatta/sbin/my_set service dns forwarding domain local addnta
+      /opt/vyatta/sbin/my_set service dns forwarding domain 10.in-addr.arpa addnta
+      /opt/vyatta/sbin/my_set service dns forwarding domain 168.192.in-addr.arpa addnta
+      /opt/vyatta/sbin/my_set service dns forwarding domain example.com addnta
+
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 1.1.1.1
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 8.8.8.8
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 9.9.9.9
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 8.8.4.4
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 1.0.0.1
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 2606:4700:4700::1111
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 2001:4860:4860::8888
+      /opt/vyatta/sbin/my_set service dns forwarding name-server 2620:fe::fe
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a dns1 address 10.0.5.2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a dns1 address 10.0.6.2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a dns2 address 10.0.5.3
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a dns2 address 10.0.6.3
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a dns-vip address 10.0.5.10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a dns-vip address 10.0.6.10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a router1 address 10.0.0.1
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a router2 address 10.0.0.2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a switch1 address 10.0.1.2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a switch2 address 10.0.3.2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a webserver address 192.168.10.100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a mailserver address 192.168.20.100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a db-server address 192.168.30.100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a "@" address 10.0.5.10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a "*.dev" address 192.168.10.200
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records a "*.staging" address 192.168.20.200
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa dns1 address 2001:db8:5::2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa dns1 address 2001:db8:6::2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa dns2 address 2001:db8:5::3
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa dns2 address 2001:db8:6::3
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa dns-vip address 2001:db8:5::10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa dns-vip address 2001:db8:6::10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa router1 address 2001:db8:1::1
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa router2 address 2001:db8:1::2
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa webserver address 2001:db8:10::100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa mailserver address 2001:db8:20::100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa db-server address 2001:db8:30::100
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records aaaa "@" address 2001:db8:5::10
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname www target webserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname ftp target webserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname git target webserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname vpn target router1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname mail target mailserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records cname db target db-server.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records ns "@" target dns1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records ns "@" target dns2.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 1 port 389
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 1 priority 10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 1 weight 10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 1 hostname router1.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 2 port 389
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 2 priority 20
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 2 weight 5
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _ldap._tcp entry 2 hostname router2.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _sip._udp entry 1 port 5060
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _sip._udp entry 1 priority 10
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _sip._udp entry 1 weight 5
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain local.lan records srv _sip._udp entry 1 hostname router1.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 0.0.10 target router1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 0.0.10 target router2.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 1.0.10 target switch1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 3.0.10 target switch2.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 2.5.10 target dns1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 2.6.10 target dns2.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 3.5.10 target dns2.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 10.in-addr.arpa records ptr 3.6.10 target dns2.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 100.10.168.192 target webserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 1.10.168.192 target gw10.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 2.10.168.192 target switch1.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 100.20.168.192 target mailserver.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 1.20.168.192 target gw20.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 2.20.168.192 target switch2.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 100.30.168.192 target db-server.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 1.30.168.192 target gw30.local.lan
+      /opt/vyatta/sbin/my_set service dns forwarding authoritative-domain 168.192.in-addr.arpa records ptr 2.30.168.192 target s3.local.lan
+
+      /opt/vyatta/sbin/my_set service dns forwarding domain local.lan server 127.0.0.1
+      /opt/vyatta/sbin/my_set service dns forwarding domain local.lan recursion-desired
+      /opt/vyatta/sbin/my_set service dns forwarding domain 10.in-addr.arpa server 127.0.0.1
+      /opt/vyatta/sbin/my_set service dns forwarding domain 168.192.in-addr.arpa server 127.0.0.1
+
+      mkdir -p /config/auth
+      echo "$TSIG_KEY" > /config/auth/ddns.key
+
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local address interface bond0
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local description 'RFC2136 DDNS for local.lan'
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local key /config/auth/ddns.key
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local server 127.0.0.1
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local zone local.lan
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local host-name dns2.local.lan
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local protocol nsupdate
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-local ttl 300
+
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse address interface bond0
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse description 'RFC2136 DDNS for reverse zone'
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse key /config/auth/ddns.key
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse server 127.0.0.1
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse zone 10.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse host-name 3.5.10.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse protocol nsupdate
+      /opt/vyatta/sbin/my_set service dns dynamic name ddns-reverse ttl 300
+
+      /opt/vyatta/sbin/my_set service dns dynamic interval 300
+
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name dns1.local.lan inet 10.0.5.2
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name dns1.local.lan inet 10.0.6.2
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name dns2.local.lan inet 10.0.5.3
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name dns2.local.lan inet 10.0.6.3
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name router1.local.lan inet 10.0.0.1
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name router2.local.lan inet 10.0.0.2
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name switch1.local.lan inet 10.0.1.2
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name switch2.local.lan inet 10.0.3.2
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name webserver.local.lan inet 192.168.10.100
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name mailserver.local.lan inet 192.168.20.100
+      /opt/vyatta/sbin/my_set system static-host-mapping host-name db-server.local.lan inet 192.168.30.100
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp4 vrid 4 interface bond0
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp4 vrid 4 priority 100
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp4 vrid 4 address 10.0.5.10/30
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp4 vrid 4 address 2001:db8:5::10/64
+
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp5 vrid 5 interface bond0
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp5 vrid 5 priority 100
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp5 vrid 5 address 10.0.6.10/30
+      /opt/vyatta/sbin/my_set interfaces vrrp vrrp5 vrid 5 address 2001:db8:6::10/64
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.5.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.6.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.10.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.20.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.30.0/24
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1 md5-key 'VyOS_OSPF_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:5::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:6::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:10::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:20::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:30::/64
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec spi 256
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp encryption 'aes256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp hash 'sha256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp key 'VyOS_OSPFv3_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospf bfd
+      /opt/vyatta/sbin/my_set protocols ospfv3 bfd
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.1
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.5.1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::1
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:5::1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.1
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.6.1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::1
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:6::1 multiplier 3
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 default-router 192.168.10.1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 dns-server 10.0.5.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 dns-server 10.0.6.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 dns-server 10.0.5.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 dns-server 10.0.6.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 dns-server 10.0.5.3
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 dns-server 10.0.6.3
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 range 0 start 192.168.10.100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 range 0 stop 192.168.10.200
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-zone local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-zone 168.192.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-update-style interim
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-tsig-key ddns-key
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-tsig-algorithm hmac-sha256
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 192.168.10.0/24 ddns-update-static yes
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 default-router 192.168.20.1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 dns-server 10.0.5.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 dns-server 10.0.6.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 dns-server 10.0.5.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 dns-server 10.0.6.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 dns-server 10.0.5.3
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 dns-server 10.0.6.3
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 range 0 start 192.168.20.100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 range 0 stop 192.168.20.200
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-zone local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-zone 168.192.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-update-style interim
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-tsig-key ddns-key
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-tsig-algorithm hmac-sha256
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 192.168.20.0/24 ddns-update-static yes
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 default-router 192.168.30.1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 dns-server 10.0.5.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 dns-server 10.0.6.10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 dns-server 10.0.5.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 dns-server 10.0.6.2
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 dns-server 10.0.5.3
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 dns-server 10.0.6.3
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 range 0 start 192.168.30.100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 range 0 stop 192.168.30.200
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-zone local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-zone 168.192.in-addr.arpa
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-update-style interim
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-tsig-key ddns-key
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-tsig-algorithm hmac-sha256
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 192.168.30.0/24 ddns-update-static yes
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 default-router 2001:db8:10::1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 dns-server 2001:db8:5::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 dns-server 2001:db8:6::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 range 0 start 2001:db8:10::100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 range 0 stop 2001:db8:10::200
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 prefix-delegation pool PD-VLAN10
+      /opt/vyatta/sbin/my_set service dhcp-server prefix-delegation pool PD-VLAN10 prefix 2001:db8:10::/56
+      /opt/vyatta/sbin/my_set service dhcp-server prefix-delegation pool PD-VLAN10 prefix-length 64
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 default-router 2001:db8:20::1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 dns-server 2001:db8:5::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 dns-server 2001:db8:6::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 range 0 start 2001:db8:20::100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN20 subnet 2001:db8:20::/64 range 0 stop 2001:db8:20::200
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 default-router 2001:db8:30::1
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 dns-server 2001:db8:5::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 dns-server 2001:db8:6::10
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 domain-name local.lan
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 lease 86400
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 range 0 start 2001:db8:30::100
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN30 subnet 2001:db8:30::/64 range 0 stop 2001:db8:30::200
+
+      /opt/vyatta/sbin/my_set service dhcp-server shared-network-name VLAN10 subnet 2001:db8:10::/64 prefix-delegation pool PD-VLAN10
+
+      /opt/vyatta/sbin/my_set service router-advertisements interface bond0
+      /opt/vyatta/sbin/my_set service router-advertisements interface bond0 prefix 2001:db8:5::/64
+      /opt/vyatta/sbin/my_set service router-advertisements interface bond0 prefix 2001:db8:6::/64
+
+      /opt/vyatta/sbin/my_commit
+      /bin/cli-shell-api teardownSession
+    SHELL
+  end
+
+  config.vm.define "S1" do |s1|
+    s1.vm.network "private_network", ip: "10.0.1.2/30", virtualbox__intnet: "R1_S1", auto_config: false
+    s1.vm.network "private_network", ip: "10.0.4.1/30", virtualbox__intnet: "S1_S2", auto_config: false
+    s1.vm.network "private_network", virtualbox__intnet: "TRUNK_NET", auto_config: false
+    s1.vm.network "private_network", virtualbox__intnet: "ACCESS_VLAN10", auto_config: false
+    s1.vm.network "private_network", virtualbox__intnet: "ACCESS_VLAN20", auto_config: false
+    s1.vm.network "private_network", virtualbox__intnet: "ACCESS_VLAN30", auto_config: false
+
+    s1.vm.provision "shell", inline: base_config("S1") + <<-SHELL
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 mode 802.3ad
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth0
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth1
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 description 'Uplink-Bond-LACP'
+
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.1.2/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.4.1/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:2::2/64
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:4::1/64
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 description 'TRUNK-PORT-to-R1'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 10 address 192.168.10.2/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 10 address 2001:db8:10::2/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 10 description 'VLAN10-Transit'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 20 address 192.168.20.2/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 20 address 2001:db8:20::2/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 20 description 'VLAN20-Transit'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 30 address 192.168.30.2/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 30 address 2001:db8:30::2/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 30 description 'VLAN30-Transit'
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 address 192.168.10.3/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 address 2001:db8:10::3/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 description 'Access-VLAN10'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 firewall in name VLAN10-IN
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 address 192.168.20.3/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 address 2001:db8:20::3/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 description 'Access-VLAN20'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 firewall in name VLAN20-IN
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth5 address 192.168.30.3/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth5 address 2001:db8:30::3/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth5 description 'Access-VLAN30'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth5 firewall in name VLAN30-IN
+
+      /opt/vyatta/sbin/my_set firewall name VLAN10-IN default-action drop
+      /opt/vyatta/sbin/my_set firewall name VLAN10-IN rule 10 action accept
+      /opt/vyatta/sbin/my_set firewall name VLAN10-IN rule 10 state established enable
+      /opt/vyatta/sbin/my_set firewall name VLAN10-IN rule 10 state related enable
+      /opt/vyatta/sbin/my_set firewall name VLAN10-IN rule 20 action accept
+      /opt/vyatta/sbin/my_set firewall name VLAN10-IN rule 20 source address 192.168.10.0/24
+
+      /opt/vyatta/sbin/my_set firewall name VLAN20-IN default-action drop
+      /opt/vyatta/sbin/my_set firewall name VLAN20-IN rule 10 action accept
+      /opt/vyatta/sbin/my_set firewall name VLAN20-IN rule 10 state established enable
+      /opt/vyatta/sbin/my_set firewall name VLAN20-IN rule 10 state related enable
+      /opt/vyatta/sbin/my_set firewall name VLAN20-IN rule 20 action accept
+      /opt/vyatta/sbin/my_set firewall name VLAN20-IN rule 20 source address 192.168.20.0/24
+
+      /opt/vyatta/sbin/my_set firewall name VLAN30-IN default-action drop
+      /opt/vyatta/sbin/my_set firewall name VLAN30-IN rule 10 action accept
+      /opt/vyatta/sbin/my_set firewall name VLAN30-IN rule 10 state established enable
+      /opt/vyatta/sbin/my_set firewall name VLAN30-IN rule 10 state related enable
+      /opt/vyatta/sbin/my_set firewall name VLAN30-IN rule 20 action accept
+      /opt/vyatta/sbin/my_set firewall name VLAN30-IN rule 20 source address 192.168.30.0/24
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.1.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.4.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.10.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.20.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.30.0/24
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:2::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:4::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:10::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:20::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:30::/64
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1 md5-key 'VyOS_OSPF_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec spi 256
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp encryption 'aes256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp hash 'sha256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp key 'VyOS_OSPFv3_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospf bfd
+      /opt/vyatta/sbin/my_set protocols ospfv3 bfd
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.1.1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.1.1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.1.1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:2::1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:2::1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:2::1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.2 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::2 multiplier 3
+
+      /opt/vyatta/sbin/my_commit
+      /bin/cli-shell-api teardownSession
+    SHELL
+  end
+
+  config.vm.define "S2" do |s2|
+    s2.vm.network "private_network", ip: "10.0.3.2/30", virtualbox__intnet: "R2_S2", auto_config: false
+    s2.vm.network "private_network", ip: "10.0.4.2/30", virtualbox__intnet: "S1_S2", auto_config: false
+    s2.vm.network "private_network", virtualbox__intnet: "TRUNK_NET", auto_config: false
+
+    s2.vm.provision "shell", inline: base_config("S2") + <<-SHELL
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 mode 802.3ad
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth0
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth1
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 description 'Uplink-Bond-LACP'
+
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.3.2/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.4.2/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:3::2/64
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:4::2/64
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 description 'TRUNK-PORT'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 10 address 192.168.10.4/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 10 address 2001:db8:10::4/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 10 description 'VLAN10-Transit'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 20 address 192.168.20.4/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 20 address 2001:db8:20::4/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 20 description 'VLAN20-Transit'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 30 address 192.168.30.4/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 30 address 2001:db8:30::4/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 30 description 'VLAN30-Transit'
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.3.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.4.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.10.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.20.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.30.0/24
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:3::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:4::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:10::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:20::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:30::/64
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1 md5-key 'VyOS_OSPF_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec spi 256
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp encryption 'aes256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp hash 'sha256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp key 'VyOS_OSPFv3_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospf bfd
+      /opt/vyatta/sbin/my_set protocols ospfv3 bfd
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.3.1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.3.1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.3.1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:3::1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:3::1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:3::1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::1 multiplier 3
+
+      /opt/vyatta/sbin/my_commit
+      /bin/cli-shell-api teardownSession
+    SHELL
+  end
+
+  config.vm.define "S3" do |s3|
+    s3.vm.network "private_network", virtualbox__intnet: "TRUNK_NET", auto_config: false
+    s3.vm.network "private_network", ip: "10.0.4.3/30", virtualbox__intnet: "S1_S2", auto_config: false
+    s3.vm.network "private_network", virtualbox__intnet: "ACCESS_VLAN10_S3", auto_config: false
+    s3.vm.network "private_network", virtualbox__intnet: "ACCESS_VLAN20_S3", auto_config: false
+	s3.vm.network "private_network", virtualbox__intnet: "EXTRA_NET", auto_config: false
+
+    s3.vm.provision "shell", inline: base_config("S3") + <<-SHELL
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 mode 802.3ad
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth0
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 member eth1
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 description 'Uplink-Bond-LACP'
+
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 10.0.4.3/30
+      /opt/vyatta/sbin/my_set interfaces bonding bond0 address 2001:db8:4::3/64
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 description 'TRUNK-PORT'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 10 address 192.168.10.5/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 10 address 2001:db8:10::5/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 10 description 'VLAN10-Transit'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 20 address 192.168.20.5/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 20 address 2001:db8:20::5/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 20 description 'VLAN20-Transit'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 30 address 192.168.30.5/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 30 address 2001:db8:30::5/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth2 vif 30 description 'VLAN30-Transit'
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 address 192.168.10.6/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 address 2001:db8:10::6/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 description 'Access-VLAN10-S3'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth3 firewall in name VLAN10-IN
+
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 address 192.168.20.6/24
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 address 2001:db8:20::6/64
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 description 'Access-VLAN20-S3'
+      /opt/vyatta/sbin/my_set interfaces ethernet eth4 firewall in name VLAN20-IN
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 10.0.4.0/30
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.10.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.20.0/24
+      /opt/vyatta/sbin/my_set protocols ospf area 0 network 192.168.30.0/24
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:4::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:10::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:20::/64
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 network 2001:db8:30::/64
+
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1
+      /opt/vyatta/sbin/my_set protocols ospf area 0 authentication md5 key-id 1 md5-key 'VyOS_OSPF_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec spi 256
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp encryption 'aes256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp hash 'sha256'
+      /opt/vyatta/sbin/my_set protocols ospfv3 area 0 authentication ipsec esp key 'VyOS_OSPFv3_Key_2026!'
+
+      /opt/vyatta/sbin/my_set protocols ospf bfd
+      /opt/vyatta/sbin/my_set protocols ospfv3 bfd
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::1 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::1 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::1 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 10.0.4.2 multiplier 3
+
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::2 interval rx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::2 interval tx 300
+      /opt/vyatta/sbin/my_set protocols bfd peer 2001:db8:4::2 multiplier 3
+
+      /opt/vyatta/sbin/my_commit
+      /bin/cli-shell-api teardownSession
+    SHELL
+  end
+
+  config.vm.define "PC1" do |pc|
+    pc.vm.box = "ubuntu/jammy64"
+    pc.vm.hostname = "PC1-VLAN10"
+
+    pc.vm.provider "virtualbox" do |vb|
+      vb.memory = 256
+      vb.cpus = 1
+    end
+
+    pc.vm.network "private_network", type: "dhcp", virtualbox__intnet: "ACCESS_VLAN10"
+
+    pc.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y traceroute mtr net-tools iputils-ping dnsutils curl wget
+    SHELL
+  end
+
+  config.vm.define "PC2" do |pc|
+    pc.vm.box = "ubuntu/jammy64"
+    pc.vm.hostname = "PC2-VLAN20"
+
+    pc.vm.provider "virtualbox" do |vb|
+      vb.memory = 256
+      vb.cpus = 1
+    end
+
+    pc.vm.network "private_network", type: "dhcp", virtualbox__intnet: "ACCESS_VLAN20"
+
+    pc.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y traceroute mtr net-tools iputils-ping dnsutils curl wget
+    SHELL
+  end
+
+  config.vm.define "PC3" do |pc|
+    pc.vm.box = "ubuntu/jammy64"
+    pc.vm.hostname = "PC3-VLAN30"
+
+    pc.vm.provider "virtualbox" do |vb|
+      vb.memory = 256
+      vb.cpus = 1
+    end
+
+    pc.vm.network "private_network", type: "dhcp", virtualbox__intnet: "ACCESS_VLAN30"
+
+    pc.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y traceroute mtr net-tools iputils-ping dnsutils curl wget
+    SHELL
+  end
+
+  config.vm.define "PC4" do |pc|
+    pc.vm.box = "ubuntu/jammy64"
+    pc.vm.hostname = "PC4-VLAN10"
+
+    pc.vm.provider "virtualbox" do |vb|
+      vb.memory = 256
+      vb.cpus = 1
+    end
+
+    pc.vm.network "private_network", type: "dhcp", virtualbox__intnet: "ACCESS_VLAN10"
+
+    pc.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y traceroute mtr net-tools iputils-ping dnsutils curl wget
+    SHELL
+  end
+
+  config.vm.define "PC5" do |pc|
+    pc.vm.box = "ubuntu/jammy64"
+    pc.vm.hostname = "PC5-VLAN10-S3"
+
+    pc.vm.provider "virtualbox" do |vb|
+      vb.memory = 256
+      vb.cpus = 1
+    end
+
+    pc.vm.network "private_network", type: "dhcp", virtualbox__intnet: "ACCESS_VLAN10_S3"
+
+    pc.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y traceroute mtr net-tools iputils-ping dnsutils curl wget
+    SHELL
+  end
+
+  config.vm.define "PC6" do |pc|
+    pc.vm.box = "ubuntu/jammy64"
+    pc.vm.hostname = "PC6-VLAN20-S3"
+
+    pc.vm.provider "virtualbox" do |vb|
+      vb.memory = 256
+      vb.cpus = 1
+    end
+
+    pc.vm.network "private_network", type: "dhcp", virtualbox__intnet: "ACCESS_VLAN20_S3"
+
+    pc.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y traceroute mtr net-tools iputils-ping dnsutils curl wget
+    SHELL
+  end
+end

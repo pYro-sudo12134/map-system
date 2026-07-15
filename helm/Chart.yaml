@@ -9,3 +9,7 @@ dependencies:
   - name: map-system
     version: 0.1
     repository: file://ism-system
+
+  - name: faas
+    version: 0.1
+    repository: file://faas

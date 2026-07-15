@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: faas
+  namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: |
+      rag-agent=docker.io/pyrodocker1/faas-m
+      rag-agent=docker.io/pyrodocker1/faas-s
+    argocd-image-updater.argoproj.io/auth-service.allow-tags: regexp:^0\.\d+\.\d+$
+    argocd-image-updater.argoproj.io/rag-agent.update-strategy: digest
+    argocd-image-updater.argoproj.io/update-interval: 5m
+
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/pYro-sudo12134/map-system
+    targetRevision: master
+    path: helm/faas/charts/
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openfaas-fn
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+#  kubectl -n argocd create secret generic github-app \
+#  --type=argocd.argoproj.io/github-app \
+#  --from-literal=appID=123456 \
+#  --from-literal=installationID=654321 \
+#  --from-file=privateKey=/path/to/private-key.pem
+
+#  kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
