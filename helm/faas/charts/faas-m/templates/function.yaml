@@ -1,0 +1,29 @@
+apiVersion: openfaas.com/v1
+kind: Function
+metadata:
+  name: {{ .Values.function.name }}
+  namespace: {{ .Values.function.namespace }}
+  labels:
+    app: {{ .Values.function.name }}
+    faas_function: {{ .Values.function.name }}
+    com.openfaas.scale.min: "{{ .Values.function.scale.min }}"
+    com.openfaas.scale.max: "{{ .Values.function.scale.max }}"
+    com.openfaas.scale.zero: "{{ .Values.function.scale.zero }}"
+  annotations:
+    prometheus.io.scrape: "true"
+spec:
+  name: {{ .Values.function.name }}
+  image: {{ .Values.function.image }}
+  serviceAccount: {{ .Values.function.serviceAccount }}
+  secrets:
+    - {{ .Values.function.secretName }}
+  environment:
+    {{- range $key, $value := .Values.function.env }}
+    {{ $key }}: "{{ $value }}"
+    {{- end }}
+  limits:
+    cpu: {{ .Values.function.limits.cpu }}
+    memory: {{ .Values.function.limits.memory }}
+  requests:
+    cpu: {{ .Values.function.requests.cpu }}
+    memory: {{ .Values.function.requests.memory }}

@@ -1,0 +1,13 @@
+apiVersion: v2
+name: ism-system
+description: ISM FaaS
+type: application
+version: 0.1.0
+dependencies:
+  - name: faas-m
+    version: 0.1
+    repository: file://charts/faas-m
+
+  - name: faas-s
+    version: 0.1
+    repository: file://charts/faas-s

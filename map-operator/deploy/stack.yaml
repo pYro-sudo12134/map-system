@@ -9,6 +9,7 @@ functions:
     lang: dockerfile
     handler: ../../map-faas
     image: pyrodocker1/faas-m:0.2
+    serviceAccount: map-operator-sa
     platform: linux/amd64
     environment:
       NEO4J_URI: bolt://neo4j.database.svc.cluster.local:7687
