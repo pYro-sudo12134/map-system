@@ -1,3 +1,5 @@
+# THIS IS JUST A SANDBOX!!!
+
 unless Vagrant.has_plugin?("vagrant-vyos")
   system("vagrant plugin install vagrant-vyos")
 end
