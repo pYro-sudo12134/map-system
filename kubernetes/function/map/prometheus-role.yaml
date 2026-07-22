@@ -1,0 +1,28 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: map-operator-alerts
+  namespace: monitoring
+spec:
+  groups:
+    - name: map-operator.rules
+      rules:
+        - alert: SQSSyncQueueTooLong
+          expr: sqs_map_queue_length{queue_name="SQS_SYNC"} > 10
+          for: 30s
+          labels:
+            severity: warning
+            component: map
+          annotations:
+            summary: "SQS_SYNC queue is too long ({{ $value }} messages)"
+            description: "Queue length is above threshold for 30 seconds"
+
+        - alert: SQSSyncQueueVeryLong
+          expr: sqs_map_queue_length{queue_name="SQS_SYNC"} > 50
+          for: 30s
+          labels:
+            severity: critical
+            component: map
+          annotations:
+            summary: "SQS_SYNC queue is very long ({{ $value }} messages)"
+            description: "Immediate scaling required"
