@@ -4,7 +4,7 @@ metadata:
   name: block-java-commands
 spec:
   kprobes:
-    - call: "execve"
+    - call: "do_execve"
       syscall: true
       args:
         - index: 0

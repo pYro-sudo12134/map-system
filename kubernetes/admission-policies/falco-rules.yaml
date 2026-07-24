@@ -1,0 +1,89 @@
+customRules:
+  java_protection.yaml: |-
+    - rule: Java Decompilation Attempt
+      desc: Detect javap command used to decompile .class files
+      condition: >
+        spawned_process and 
+        container and
+        (proc.name = "javap" or proc.cmdline contains "javap")
+      output: >
+        Java decompilation attempted in container
+        (pod=%k8s.pod.name namespace=%k8s.ns.name 
+        user=%user.name command=%proc.cmdline)
+      priority: CRITICAL
+      tags: [java, decompile, mitre_TA0008]
+      action: kill
+
+    - rule: Java Compilation Attempt
+      desc: Detect javac compilation in containers
+      condition: >
+        spawned_process and 
+        container and
+        (proc.name = "javac" or proc.cmdline contains "javac")
+      output: >
+        Java compilation attempted in container
+        (pod=%k8s.pod.name namespace=%k8s.ns.name 
+        command=%proc.cmdline)
+      priority: CRITICAL
+      tags: [java, compile]
+
+    - rule: JAR Extraction Attempt
+      desc: Detect jar command extracting files
+      condition: >
+        spawned_process and 
+        container and
+        proc.name = "jar" and 
+        (proc.args contains "xf" or proc.args contains "xvf")
+      output: >
+        JAR extraction attempted in container
+        (pod=%k8s.pod.name namespace=%k8s.ns.name 
+        args=%proc.args)
+      priority: CRITICAL
+      tags: [java, extraction]
+
+    - rule: Python Code Injection
+      desc: Detect dangerous Python commands
+      condition: >
+        spawned_process and 
+        container and
+        proc.name in (python, python3) and
+        (proc.args contains "-c" and 
+         (proc.args contains "import os" or 
+          proc.args contains "import subprocess" or
+          proc.args contains "__import__" or
+          proc.args contains "exec("))
+      output: >
+        Python code injection detected
+        (pod=%k8s.pod.name namespace=%k8s.ns.name 
+        command=%proc.cmdline)
+      priority: CRITICAL
+      tags: [python, injection]
+
+    - rule: Pip Install
+      desc: Detect pip install in containers
+      condition: >
+        spawned_process and 
+        container and
+        proc.name in (pip, pip3) and
+        proc.args contains "install"
+      output: >
+        Pip install attempted in container
+        (pod=%k8s.pod.name namespace=%k8s.ns.name 
+        package=%proc.args)
+      priority: CRITICAL
+      tags: [python, supply_chain]
+
+    - rule: Go Build in Container
+      desc: Detect go build/run in containers
+      condition: >
+        spawned_process and 
+        container and
+        proc.name = "go" and
+        (proc.args contains "build" or 
+         proc.args contains "run")
+      output: >
+        Go build/run detected in container
+        (pod=%k8s.pod.name namespace=%k8s.ns.name 
+        command=%proc.cmdline)
+      priority: CRITICAL
+      tags: [golang, compilation]
