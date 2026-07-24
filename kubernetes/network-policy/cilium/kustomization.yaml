@@ -39,3 +39,5 @@ resources:
 #    --set hubble.ui.enabled=true \
 #    --set hubble.relay.enabled=true \
 #    --set hubble.metrics.enable='{dns,drop,tcp,flow,icmp,http}'
+#    --set tetragon.enabled=true \
+#    --set tetragon.operator.enabled=true

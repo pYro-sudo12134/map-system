@@ -1,0 +1,164 @@
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: block-java-commands
+spec:
+  kprobes:
+    - call: "execve"
+      syscall: true
+      args:
+        - index: 0
+          type: "string"
+      selectors:
+        - matchBinaries:
+            - operator: "Postfix"
+              values:
+                - "java"
+                - "javac"
+                - "javap"
+                - "jar"
+                - "jdb"
+                - "jshell"
+          matchActions:
+            - action: Sigkill
+            - action: Post
+---
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: block-python-dangerous
+spec:
+  kprobes:
+    - call: "do_execve"
+      syscall: true
+      args:
+        - index: 0
+          type: "string"
+        - index: 1
+          type: "string"
+      selectors:
+        - matchNamespaces:
+            - namespace: Pid
+              operator: NotIn
+              values: ["host_ns"]
+          matchArgs:
+            - index: 0
+              operator: "Postfix"
+              values:
+                - "/python"
+                - "/python3"
+            - index: 1
+              operator: "SubString"
+              values:
+                - "import os"
+                - "import subprocess"
+                - "__import__"
+                - "exec("
+                - "eval("
+                - "os.system"
+                - "subprocess.call"
+                - "subprocess.Popen"
+                - "socket."
+          matchActions:
+            - action: Sigkill
+            - action: Post
+---
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: block-pip-install
+spec:
+  kprobes:
+    - call: "do_execve"
+      syscall: true
+      args:
+        - index: 0
+          type: "string"
+        - index: 1
+          type: "string"
+      selectors:
+        - matchNamespaces:
+            - namespace: Pid
+              operator: NotIn
+              values: ["host_ns"]
+          matchArgs:
+            - index: 0
+              operator: "Postfix"
+              values:
+                - "/pip"
+                - "/pip3"
+            - index: 1
+              operator: "SubString"
+              values:
+                - "install"
+          matchActions:
+            - action: Sigkill
+            - action: Post
+---
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: block-go-build
+spec:
+  kprobes:
+    - call: "do_execve"
+      syscall: true
+      args:
+        - index: 0
+          type: "string"
+        - index: 1
+          type: "string"
+      selectors:
+        - matchNamespaces:
+            - namespace: Pid
+              operator: NotIn
+              values: ["host_ns"]
+          matchArgs:
+            - index: 0
+              operator: "Postfix"
+              values:
+                - "/go"
+            - index: 1
+              operator: "Prefix"
+              values:
+                - "build"
+                - "run"
+          matchActions:
+            - action: Sigkill
+            - action: Post
+---
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: block-exfiltration
+spec:
+  kprobes:
+    - call: "do_execve"
+      syscall: true
+      args:
+        - index: 0
+          type: "string"
+        - index: 1
+          type: "string"
+      selectors:
+        - matchNamespaces:
+            - namespace: Pid
+              operator: NotIn
+              values: ["host_ns"]
+          matchArgs:
+            - index: 0
+              operator: "Postfix"
+              values:
+                - "/curl"
+                - "/wget"
+            - index: 1
+              operator: "SubString"
+              values:
+                - "-F"
+                - "--data"
+                - "-d"
+                - "http://"
+                - "https://"
+          matchActions:
+            - action: Sigkill
+            - action: Post
