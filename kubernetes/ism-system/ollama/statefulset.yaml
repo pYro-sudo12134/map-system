@@ -26,7 +26,7 @@ spec:
 #          requiredDuringSchedulingIgnoredDuringExecution:
 #            nodeSelectorTerms:
 #              - matchExpressions:
-#                  - key: node-role.kubernetes.io/storage
+#                  - key: node-role.kubernetes.io/gpu
 #                    operator: Exists
 #          preferredDuringSchedulingIgnoredDuringExecution:
 #            - weight: 100
@@ -42,9 +42,10 @@ spec:
         runAsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      runtimeClassName: nvidia
       containers:
         - name: ollama
-          image: ollama/ollama:0.30.0-rc10-rocm
+          image: ollama/ollama:0.30.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 11434
@@ -71,9 +72,11 @@ spec:
             requests:
               memory: "1Gi"
               cpu: "2000m"
+              nvidia.com/gpu: "1"
             limits:
               memory: "2Gi"
               cpu: "4000m"
+              nvidia.com/gpu: "1"
           livenessProbe:
             tcpSocket:
               port: 11434
@@ -95,3 +98,6 @@ spec:
         resources:
           requests:
             storage: 20Gi
+
+#  kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/main/deployments/static/nvidia-device-plugin.yml
+#  helm repo add nvidia https://nvidia.github.io/gpu-operator
