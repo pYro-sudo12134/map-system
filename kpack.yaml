@@ -245,50 +245,6 @@ spec:
         value: "3.11"
 
 ---
-apiVersion: kpack.io/v1alpha2
-kind: Image
-metadata:
-  name: faas-m
-  namespace: kpack-system
-spec:
-  tag: docker.io/pyrodocker1/faas-m
-  serviceAccount: kpack-service-account
-  builder:
-    name: go-builder
-    kind: Builder
-  source:
-    git:
-      url: https://github.com/pYro-sudo12134/map-system
-      revision: master
-    subPath: map-faas
-  build:
-    env:
-      - name: BP_GO_TARGETS
-        value: "./..."
-
----
-apiVersion: kpack.io/v1alpha2
-kind: Image
-metadata:
-  name: faas-s
-  namespace: kpack-system
-spec:
-  tag: docker.io/pyrodocker1/faas-s
-  serviceAccount: kpack-service-account
-  builder:
-    name: go-builder
-    kind: Builder
-  source:
-    git:
-      url: https://github.com/pYro-sudo12134/map-system
-      revision: master
-    subPath: sync-faas
-  build:
-    env:
-      - name: BP_GO_TARGETS
-        value: "./..."
-
----
 apiVersion: v1
 kind: ServiceAccount
 metadata:
