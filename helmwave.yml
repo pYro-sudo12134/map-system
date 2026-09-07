@@ -1,0 +1,292 @@
+version: "dev"
+
+settings:
+  kubeconfig: ~/.kube/config
+
+repositories:
+  - name: robusta
+    url: https://robusta-charts.storage.googleapis.com
+  - name: openfaas
+    url: https://openfaas.github.io/faas-netes/
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+  - name: nvidia
+    url: https://nvidia.github.io/gpu-operator
+  - name: cilium
+    url: https://helm.cilium.io/
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
+  - name: sealed-secrets
+    url: oci://registry-1.docker.io/bitnamicharts/sealed-secrets
+  - name: kpack
+    url: https://pivotal.github.io/kpack
+  - name: longhorn
+    url: https://charts.longhorn.io
+  - name: kyverno
+    url: https://kyverno.github.io/kyverno/
+  - name: falcosecurity
+    url: https://falcosecurity.github.io/charts
+
+releases:
+  - name: kubewatch
+    namespace: watcher
+    create_namespace: true
+    chart: robusta/kubewatch
+    version: 3.5.0
+    values:
+      - inline: |
+          slack:
+            enabled: false
+          rbac:
+            create: true
+          smtp:
+            enabled: true
+            to: "mail@gmail.com"
+            from: "mail@gmail.com"
+            smarthost: "smtp.gmail.com:587"
+            auth:
+              username: "mail@gmail.com"
+              password: "16-symbols"
+            requireTLS: true
+          resourcesToWatch:
+            pod: false
+            deployment: true
+            coreevent: true
+            services: true
+
+  - name: cilium
+    namespace: kube-system
+    chart: cilium/cilium
+    version: 1.15.0
+    values:
+      - inline: |
+          egressGateway:
+            enabled: true
+          bpf:
+            masquerade: true
+          kubeProxyReplacement: true
+          encryption:
+            enabled: true
+            type: wireguard
+          ingressController:
+            defaultSecretNamespace: kube-system
+            defaultSecretName: default-cert
+            enabled: true
+            default: true
+            loadbalancerMode: shared
+          envoy:
+            enabled: true
+          envoyConfig:
+            enabled: true
+          hubble:
+            enabled: true
+            ui:
+              enabled: true
+            relay:
+              enabled: true
+            metrics:
+              enable: ['dns', 'drop', 'tcp', 'flow', 'icmp', 'http']
+
+  - name: tetragon
+    namespace: kube-system
+    chart: cilium/tetragon
+    version: 1.0.0
+
+  - name: cert-manager
+    namespace: cert-manager
+    create_namespace: true
+    chart: bitnami/cert-manager
+    version: 1.14.0
+    values:
+      - inline: |
+          installCRDs: true
+
+  - name: longhorn
+    namespace: longhorn-system
+    create_namespace: true
+    chart: longhorn/longhorn
+    version: 1.5.0
+    values:
+      - inline: |
+          csi:
+            attacherReplicaCount: 3
+            provisionerReplicaCount: 3
+            resizerReplicaCount: 3
+            snapshotterReplicaCount: 3
+          defaultSettings:
+            backupTarget: "s3://your-backup-bucket@us-east-1/"
+            backupTargetCredentialSecret: "longhorn-backup-secret"
+            defaultReplicaCount: 3
+            defaultDataLocality: "disabled"
+            defaultLonghornStaticStorageClass: "longhorn-custom"
+            storageOverProvisioningPercentage: 100
+            storageMinimalAvailablePercentage: 10
+            upgradeChecker: false
+            defaultDataPath: "/var/lib/longhorn/"
+            replicaSoftAntiAffinity: true
+            replicaAutoBalance: "least-effort"
+            removeSnapshotsDuringFilesystemTrim: enabled
+            createDefaultDiskLabeledNodes: false
+            systemManagedComponentsNodeSelector: ""
+            priorityClass: ""
+            autoDeletePodWhenVolumeDetachedUnexpectedly: true
+            disableSchedulingOnCordonedNode: true
+
+  - name: kyverno
+    namespace: kyverno
+    create_namespace: true
+    chart: kyverno/kyverno
+    version: 3.2.0
+    values:
+      - inline: |
+          admissionController:
+            replicas: 2
+          backgroundController:
+            replicas: 2
+          cleanupController:
+            replicas: 1
+          reportsController:
+            replicas: 1
+
+  - name: falco
+    namespace: falco
+    create_namespace: true
+    chart: falcosecurity/falco
+    version: 4.0.0
+    values:
+      - inline: |
+          tty: true
+          falco:
+            rules_file:
+              - /etc/falco/falco_rules.yaml
+              - /etc/falco/falco_rules.local.yaml
+              - /etc/falco/rules.d
+
+  - name: openfaas
+    namespace: openfaas
+    create_namespace: true
+    chart: openfaas/openfaas
+    version: 13.0.0
+    values:
+      - inline: |
+          functionNamespace: openfaas-fn
+          generateBasicAuth: true
+          gateway:
+            replicas: 2
+          queueWorker:
+            replicas: 2
+
+  - name: prometheus
+    namespace: monitoring
+    create_namespace: true
+    chart: prometheus-community/kube-prometheus-stack
+    version: 58.0.0
+    values:
+      - inline: |
+          grafana:
+            enabled: false
+          prometheus:
+            prometheusSpec:
+              serviceMonitorSelectorNilUsesHelmValues: false
+              storageSpec:
+                volumeClaimTemplate:
+                  spec:
+                    storageClassName: longhorn-custom
+                    accessModes: ["ReadWriteOnce"]
+                    resources:
+                      requests:
+                        storage: 50Gi
+
+  - name: grafana
+    namespace: monitoring
+    chart: grafana/grafana
+    version: 8.0.0
+    values:
+      - inline: |
+          adminPassword: admin
+          service:
+            type: ClusterIP
+          persistence:
+            enabled: true
+            storageClassName: longhorn-custom
+            size: 10Gi
+
+  - name: gpu-operator
+    namespace: gpu-operator
+    create_namespace: true
+    chart: nvidia/gpu-operator
+    version: v23.9.0
+    enabled: false
+
+resources:
+  - path: storageclass.yaml
+    content: |
+      apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        name: longhorn-custom
+      provisioner: driver.longhorn.io
+      allowVolumeExpansion: true
+      reclaimPolicy: Delete
+      volumeBindingMode: WaitForFirstConsumer
+      parameters:
+        backupTargetName: "default"
+        numberOfReplicas: "3"
+        staleReplicaTimeout: "2880"
+        fromBackup: ""
+        fsType: "ext4"
+        encrypted: "true"
+        csi.storage.k8s.io/provisioner-secret-name: "longhorn-crypto"
+        csi.storage.k8s.io/provisioner-secret-namespace: "longhorn-system"
+        csi.storage.k8s.io/node-publish-secret-name: "longhorn-crypto"
+        csi.storage.k8s.io/node-publish-secret-namespace: "longhorn-system"
+        csi.storage.k8s.io/node-stage-secret-name: "longhorn-crypto"
+        csi.storage.k8s.io/node-stage-secret-namespace: "longhorn-system"
+        csi.storage.k8s.io/node-expand-secret-name: "longhorn-crypto"
+        csi.storage.k8s.io/node-expand-secret-namespace: "longhorn-system"
+
+  - path: kubernetes/namespace/namespaces.yaml
+  - path: kubernetes/admission-policies/no-privileged.yaml
+  - path: kubernetes/admission-policies/no-latest-tag.yaml
+  - path: kubernetes/admission-policies/require-resources.yaml
+  - path: kubernetes/admission-policies/exception.yaml
+  - path: kubernetes/admission-policies/no-host-path.yaml
+  - path: kubernetes/admission-policies/validate-pdb.yaml
+  - path: kubernetes/admission-policies/validate-hpa.yaml
+  - path: kubernetes/admission-policies/require-pdb-hpa-consistency.yaml
+  - path: kubernetes/admission-policies/no-shared-process-namespace.yaml
+  - path: kubernetes/admission-policies/no-default-namespace.yaml
+  - path: kubernetes/admission-policies/no-nodeport-services.yaml
+  - path: kubernetes/admission-policies/tracing-policy.yaml
+  - path: kubernetes/admission-policies/falco-rules.yaml
+  - path: kubernetes/storage/encryption-secret.yaml
+
+order:
+  - kubewatch
+  - longhorn
+  - sealed-secrets
+  - cert-manager
+  - cilium
+  - tetragon
+  - kyverno
+  - falco
+  - openfaas
+  - prometheus
+  - grafana
+  - gpu-operator
+  - resources
+
+hooks:
+  post_apply:
+    - name: wait-for-longhorn
+      description: Wait for Longhorn to be ready
+      command: |
+        kubectl -n longhorn-system wait --for=condition=ready pod -l app=longhorn-manager --timeout=300s
+        kubectl -n longhorn-system wait --for=condition=ready pod -l app=longhorn-ui --timeout=300s
+
+    - name: apply-kyverno-policies
+      description: Ensure Kyverno policies are applied
+      command: |
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=kyverno -n kyverno --timeout=120s

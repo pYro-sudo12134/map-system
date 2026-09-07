@@ -49,4 +49,7 @@ spec:
             - openfaas-fn
             - openfaas
             - ism-mq
+            - watcher
+            - kpack
+            - kpack-system
             - monitoring

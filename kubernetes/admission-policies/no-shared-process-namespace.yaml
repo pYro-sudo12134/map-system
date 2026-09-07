@@ -38,4 +38,7 @@ spec:
             - openfaas
             - ism-mq
             - ingress
+            - watcher
+            - kpack
+            - kpack-system
             - monitoring  # для sidecar

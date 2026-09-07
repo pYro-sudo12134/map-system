@@ -71,3 +71,4 @@ handler
 
 !helm/mq/localstack
 !kubernetes/mq/localstack
+.helmwave

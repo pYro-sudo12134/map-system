@@ -38,3 +38,6 @@ spec:
             - openfaas
             - ism-mq
             - ingress
+            - watcher
+            - kpack
+            - kpack-system
