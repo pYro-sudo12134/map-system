@@ -152,7 +152,7 @@ spec:
   build:
     env:
       - name: BP_JVM_VERSION
-        value: "17"
+        value: "21"
 
 ---
 apiVersion: kpack.io/v1alpha2
@@ -174,7 +174,7 @@ spec:
   build:
     env:
       - name: BP_JVM_VERSION
-        value: "17"
+        value: "21"
 
 ---
 apiVersion: kpack.io/v1alpha2
@@ -240,7 +240,7 @@ spec:
   build:
     env:
       - name: BP_PIP_REQUIREMENTS_FILE
-        value: requirements.txt
+        value: "requirements.txt"
       - name: BP_PYTHON_VERSION
         value: "3.11"
 
@@ -276,3 +276,13 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 
 #  kubectl apply -f https://github.com/pivotal/kpack/releases/download/v0.4.1/release-0.4.1.yaml
+#  helm repo add bitnami https://charts.bitnami.com/bitnami
+#  helm install kubewatch bitnami/kubewatch \
+#  --set slack.enabled=false \
+#  --set email.enabled=true \
+#  --set email.to="some-mail@mail.com" \
+#  --set email.from="some-mail@mail.com" \
+#  --set email.smtpHost="smtp.gmail.com" \
+#  --set email.smtpPort="587" \
+#  --set email.smtpUsername="some-mail@mail.com" \
+#  --set email.smtpPassword="your-password-16-symbols"
