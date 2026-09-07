@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: watcher
+  annotations:
+    name: watcher
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/warn: baseline
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubewatch-event-reader
+rules:
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [ "apps/v1" ]
+    resources: [ "deployments", "daemonsets", "statefulsets" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "" ]
+    resources: [ "pods", "services", "namespaces", "events" ]
+    verbs: [ "get", "list", "watch" ]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubewatch-event-reader
+subjects:
+  - kind: ServiceAccount
+    name: kubewatch
+    namespace: watcher
+roleRef:
+  kind: ClusterRole
+  name: kubewatch-event-reader
+  apiGroup: rbac.authorization.k8s.io
+
+#  helm repo add robusta https://robusta-charts.storage.googleapis.com
+#  helm install kubewatch robusta/kubewatch \
+#  --namespace watcher \
+#  --create-namespace \
+#  --set slack.enabled=false \
+#  --set rbac.create=true \
+#  --set smtp.enabled=true \
+#  --set smtp.to="mail@gmail.com" \
+#  --set smtp.from="mail@gmail.com" \
+#  --set smtp.smarthost="smtp.gmail.com:587" \
+#  --set smtp.auth.username="mail@gmail.com" \
+#  --set smtp.auth.password="16-symbols" \
+#  --set smtp.requireTLS="true" \
+#  --set resourcesToWatch.pod=false \
+#  --set resourcesToWatch.deployment=true \
+#  --set resourcesToWatch.coreevent=true \
+#  --set resourcesToWatch.services=true
