@@ -1,0 +1,322 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kpack-system
+  labels:
+    name: kpack-system
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/warn: baseline
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: ClusterStack
+metadata:
+  name: base
+spec:
+  id: "io.buildpacks.stacks.jammy"
+  buildImage:
+    image: "paketobuildpacks/build-jammy-base"
+  runImage:
+    image: "paketobuildpacks/run-jammy-base"
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: ClusterStore
+metadata:
+  name: default
+spec:
+  sources:
+    - image: gcr.io/paketo-buildpacks/builder:base
+    - image: gcr.io/paketo-buildpacks/nodejs
+    - image: gcr.io/paketo-buildpacks/java
+    - image: gcr.io/paketo-buildpacks/python
+    - image: gcr.io/paketo-buildpacks/go
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dockerhub-credentials
+  namespace: kpack-system
+  annotations:
+    kpack.io/docker: https://hub.docker.com/
+type: kubernetes.io/basic-auth
+stringData:
+  username: pyrodocker1
+  password: pyrodocker1 # I am not going to insert it
+
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: dockerhub-credentials
+  namespace: kpack-system
+  annotations:
+    sealedsecrets.bitnami.com/managed: "true"
+spec:
+  encryptedData:
+    username: AgBRA6E1cw3ERa6z5kv6gul97kTTHzQZ2AwaB3pkevsG92LgcbX1uy/Zc6Rf+AGx2qve0NtONdgUvNo2Yy20VvvpNvvnYjzhH9dIds496Si9UdKQJNn7B8yjhphvh/BFeRb+5zno+ks3pFilgnWy3KTUJiuh3s/5az+GCq98Tt9G6PnD93t/fDEE4VPXQ9jOtUau9HMcPO7fYsJZmUBYWCvX7fwV8WoSDDFTkbAzFCwhVsYtExOjCTlgJP06xDOOnMG+uh27erLoM5RjJfACzm6PNiDOwbHY8ae6TXDtcPnGS+UlNBC/JQ8baH+HeGYSb17GDNOdzs4bhRj+gCawogAkmYkp2xQb4+KokzzS72Js2mn2+fV8TcvRdBVl+6iCoP5YB6R3QQjBi48Zo4wuTTRGsB1bLHUHjgE498I9Igy26/7ojcPz0QlnCTAEjQi7XdPlwFnrv7M3qDhVT2VP7J7/c9rvd+DV+tsOC1Lc8EVIC+Nu5elj3bY+3UT4GRYeO6hWOPSayGzpy1a29JYYOZsn13Q4q8cRkZFEEmIvCd60giD5V/NhU0mIXBCpDnaa0HnKGy332RCUfzaw9mfXjDpcZjYEUg4Z0JN47Wl5H9RphecuoN7xY5Kcc6Oq54FwMyfn+7Vj/sr3o6fu13c66yvbD1nE+YwTc9W2bxvhv+MDe4eqQW1gVVVlO7TdjOfk54IfztYKtsPXTVPM3eCBow==
+    password: AgBRA6E1cw3ERa6z5kv6gul97kTTHzQZ2AwaB3pkevsG92LgcbX1uy/Zc6Rf+AGx2qve0NtONdgUvNo2Yy20VvvpNvvnYjzhH9dIds496Si9UdKQJNn7B8yjhphvh/BFeRb+5zno+ks3pFilgnWy3KTUJiuh3s/5az+GCq98Tt9G6PnD93t/fDEE4VPXQ9jOtUau9HMcPO7fYsJZmUBYWCvX7fwV8WoSDDFTkbAzFCwhVsYtExOjCTlgJP06xDOOnMG+uh27erLoM5RjJfACzm6PNiDOwbHY8ae6TXDtcPnGS+UlNBC/JQ8baH+HeGYSb17GDNOdzs4bhRj+gCawogAkmYkp2xQb4+KokzzS72Js2mn2+fV8TcvRdBVl+6iCoP5YB6R3QQjBi48Zo4wuTTRGsB1bLHUHjgE498I9Igy26/7ojcPz0QlnCTAEjQi7XdPlwFnrv7M3qDhVT2VP7J7/c9rvd+DV+tsOC1Lc8EVIC+Nu5elj3bY+3UT4GRYeO6hWOPSayGzpy1a29JYYOZsn13Q4q8cRkZFEEmIvCd60giD5V/NhU0mIXBCpDnaa0HnKGy332RCUfzaw9mfXjDpcZjYEUg4Z0JN47Wl5H9RphecuoN7xY5Kcc6Oq54FwMyfn+7Vj/sr3o6fu13c66yvbD1nE+YwTc9W2bxvhv+MDe4eqQW1gVVVlO7TdjOfk54IfztYKtsPXTVPM3eCBow==
+  template:
+    metadata:
+      annotations:
+        kpack.io/docker: https://hub.docker.com/
+    type: kubernetes.io/basic-auth
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kpack-service-account
+  namespace: kpack-system
+secrets:
+  - name: dockerhub-credentials
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: Builder
+metadata:
+  name: java-builder
+  namespace: kpack-system
+spec:
+  tag: docker.io/pyrodocker1/java-builder
+  serviceAccount: kpack-service-account
+  stack:
+    name: base
+    kind: ClusterStack
+  store:
+    name: default
+    kind: ClusterStore
+  order:
+    - group:
+        - id: paketo-buildpacks/java
+        - id: paketo-buildpacks/spring-boot
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: Builder
+metadata:
+  name: go-builder
+  namespace: kpack-system
+spec:
+  tag: docker.io/pyrodocker1/go-builder
+  serviceAccount: kpack-service-account
+  stack:
+    name: base
+    kind: ClusterStack
+  store:
+    name: default
+    kind: ClusterStore
+  order:
+    - group:
+        - id: paketo-buildpacks/go
+        - id: paketo-buildpacks/procfile
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: Builder
+metadata:
+  name: python-builder
+  namespace: kpack-system
+spec:
+  tag: docker.io/pyrodocker1/python-builder
+  serviceAccount: kpack-service-account
+  stack:
+    name: base
+    kind: ClusterStack
+  store:
+    name: default
+    kind: ClusterStore
+  order:
+    - group:
+        - id: paketo-buildpacks/python
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: Image
+metadata:
+  name: auth-service
+  namespace: kpack-system
+spec:
+  tag: docker.io/pyrodocker1/auth-service
+  serviceAccount: kpack-service-account
+  builder:
+    name: java-builder
+    kind: Builder
+  source:
+    git:
+      url: https://github.com/pYro-sudo12134/map-system
+      revision: master
+    subPath: auth-service
+  build:
+    env:
+      - name: BP_JVM_VERSION
+        value: "17"
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: Image
+metadata:
+  name: map-router
+  namespace: kpack-system
+spec:
+  tag: docker.io/pyrodocker1/map-router
+  serviceAccount: kpack-service-account
+  builder:
+    name: java-builder
+    kind: Builder
+  source:
+    git:
+      url: https://github.com/pYro-sudo12134/map-system
+      revision: master
+    subPath: map-router
+  build:
+    env:
+      - name: BP_JVM_VERSION
+        value: "17"
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: Image
+metadata:
+  name: map-operator
+  namespace: kpack-system
+spec:
+  tag: docker.io/pyrodocker1/map-operator
+  serviceAccount: kpack-service-account
+  builder:
+    name: go-builder
+    kind: Builder
+  source:
+    git:
+      url: https://github.com/pYro-sudo12134/map-system
+      revision: master
+    subPath: map-operator
+  build:
+    env:
+      - name: BP_GO_TARGETS
+        value: "./cmd/manager"
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: Image
+metadata:
+  name: sync-operator
+  namespace: kpack-system
+spec:
+  tag: docker.io/pyrodocker1/sync-operator
+  serviceAccount: kpack-service-account
+  builder:
+    name: go-builder
+    kind: Builder
+  source:
+    git:
+      url: https://github.com/pYro-sudo12134/map-system
+      revision: master
+    subPath: sync-operator
+  build:
+    env:
+      - name: BP_GO_TARGETS
+        value: "./cmd/manager"
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: Image
+metadata:
+  name: rag-agent
+  namespace: kpack-system
+spec:
+  tag: docker.io/pyrodocker1/rag-agent
+  serviceAccount: kpack-service-account
+  builder:
+    name: python-builder
+    kind: Builder
+  source:
+    git:
+      url: https://github.com/pYro-sudo12134/map-system
+      revision: master
+    subPath: rag-agent
+  build:
+    env:
+      - name: BP_PIP_REQUIREMENTS_FILE
+        value: requirements.txt
+      - name: BP_PYTHON_VERSION
+        value: "3.11"
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: Image
+metadata:
+  name: faas-m
+  namespace: kpack-system
+spec:
+  tag: docker.io/pyrodocker1/faas-m
+  serviceAccount: kpack-service-account
+  builder:
+    name: go-builder
+    kind: Builder
+  source:
+    git:
+      url: https://github.com/pYro-sudo12134/map-system
+      revision: master
+    subPath: map-faas
+  build:
+    env:
+      - name: BP_GO_TARGETS
+        value: "./..."
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: Image
+metadata:
+  name: faas-s
+  namespace: kpack-system
+spec:
+  tag: docker.io/pyrodocker1/faas-s
+  serviceAccount: kpack-service-account
+  builder:
+    name: go-builder
+    kind: Builder
+  source:
+    git:
+      url: https://github.com/pYro-sudo12134/map-system
+      revision: master
+    subPath: sync-faas
+  build:
+    env:
+      - name: BP_GO_TARGETS
+        value: "./..."
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-kpack-reader
+  namespace: argocd
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kpack-image-reader
+rules:
+  - apiGroups: ["kpack.io"]
+    resources: ["images"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-kpack-reader-binding
+subjects:
+  - kind: ServiceAccount
+    name: argocd-kpack-reader
+    namespace: argocd
+roleRef:
+  kind: ClusterRole
+  name: kpack-image-reader
+  apiGroup: rbac.authorization.k8s.io
+
+#  kubectl apply -f https://github.com/pivotal/kpack/releases/download/v0.4.1/release-0.4.1.yaml
