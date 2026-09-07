@@ -1,0 +1,64 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: kpack-system-egress-allow
+  namespace: kpack-system
+spec:
+  endpointSelector:
+    matchLabels:
+      kpack.io/build: "true"
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: TCP
+      - port: "53"
+        protocol: UDP
+  - toFQDNs:
+    - matchName: "docker.io"
+    - matchPattern: "*.docker.io"
+    - matchName: "auth.docker.io"
+    - matchName: "github.com"
+    - matchPattern: "*.githubusercontent.com"
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      - port: "443"
+        protocol: TCP
+---
+kind: CiliumNetworkPolicy
+metadata:
+  name: kpack-egress-allow
+  namespace: kpack
+spec:
+  endpointSelector:
+    matchLabels:
+      kpack.io/build: "true"
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: TCP
+      - port: "53"
+        protocol: UDP
+  - toFQDNs:
+    - matchName: "docker.io"
+    - matchPattern: "*.docker.io"
+    - matchName: "auth.docker.io"
+    - matchName: "github.com"
+    - matchPattern: "*.githubusercontent.com"
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      - port: "443"
+        protocol: TCP
