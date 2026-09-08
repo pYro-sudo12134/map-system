@@ -22,6 +22,7 @@ spec:
     - matchName: "docker.io"
     - matchPattern: "*.docker.io"
     - matchName: "auth.docker.io"
+    - matchPattern: "*.docker.com"
     - matchName: "github.com"
     - matchPattern: "*.githubusercontent.com"
     toPorts:
@@ -54,6 +55,7 @@ spec:
     - matchName: "docker.io"
     - matchPattern: "*.docker.io"
     - matchName: "auth.docker.io"
+    - matchPattern: "*.docker.com"
     - matchName: "github.com"
     - matchPattern: "*.githubusercontent.com"
     toPorts:

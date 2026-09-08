@@ -18,6 +18,8 @@ resources:
   - egress-to-world.yaml
   - longhorn-allow.yaml
   - longhorn-out.yaml
+  - kpack-dns.yaml
+  - watcher-dns.yaml
 
 #  helm repo add cilium https://helm.cilium.io/
 #  helm install cilium cilium/cilium \

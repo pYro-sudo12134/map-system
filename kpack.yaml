@@ -40,7 +40,7 @@ metadata:
   name: dockerhub-credentials
   namespace: kpack-system
   annotations:
-    kpack.io/docker: https://hub.docker.com/
+    kpack.io/docker: https://hub.docker.com/ # http://harbor.harbor.svc.cluster.local
 type: kubernetes.io/basic-auth
 stringData:
   username: pyrodocker1
@@ -61,7 +61,7 @@ spec:
   template:
     metadata:
       annotations:
-        kpack.io/docker: https://hub.docker.com/
+        kpack.io/docker: https://hub.docker.com/ # http://harbor.harbor.svc.cluster.local
     type: kubernetes.io/basic-auth
 
 ---
@@ -80,7 +80,7 @@ metadata:
   name: java-builder
   namespace: kpack-system
 spec:
-  tag: docker.io/pyrodocker1/java-builder
+  tag: docker.io/pyrodocker1/java-builder # http://harbor.harbor.svc.cluster.local/java-builder
   serviceAccount: kpack-service-account
   stack:
     name: base
@@ -100,7 +100,7 @@ metadata:
   name: go-builder
   namespace: kpack-system
 spec:
-  tag: docker.io/pyrodocker1/go-builder
+  tag: docker.io/pyrodocker1/go-builder # http://harbor.harbor.svc.cluster.local/go-builder
   serviceAccount: kpack-service-account
   stack:
     name: base
@@ -120,7 +120,7 @@ metadata:
   name: python-builder
   namespace: kpack-system
 spec:
-  tag: docker.io/pyrodocker1/python-builder
+  tag: docker.io/pyrodocker1/python-builder # http://harbor.harbor.svc.cluster.local/python-builder
   serviceAccount: kpack-service-account
   stack:
     name: base
@@ -139,7 +139,7 @@ metadata:
   name: auth-service
   namespace: kpack-system
 spec:
-  tag: docker.io/pyrodocker1/auth-service
+  tag: docker.io/pyrodocker1/auth-service # http://harbor.harbor.svc.cluster.local/auth-service
   serviceAccount: kpack-service-account
   builder:
     name: java-builder
@@ -161,7 +161,7 @@ metadata:
   name: map-router
   namespace: kpack-system
 spec:
-  tag: docker.io/pyrodocker1/map-router
+  tag: docker.io/pyrodocker1/map-router # http://harbor.harbor.svc.cluster.local/map-router
   serviceAccount: kpack-service-account
   builder:
     name: java-builder
@@ -183,7 +183,7 @@ metadata:
   name: map-operator
   namespace: kpack-system
 spec:
-  tag: docker.io/pyrodocker1/map-operator
+  tag: docker.io/pyrodocker1/map-operator # http://harbor.harbor.svc.cluster.local/map-operator
   serviceAccount: kpack-service-account
   builder:
     name: go-builder
@@ -205,7 +205,7 @@ metadata:
   name: sync-operator
   namespace: kpack-system
 spec:
-  tag: docker.io/pyrodocker1/sync-operator
+  tag: docker.io/pyrodocker1/sync-operator # http://harbor.harbor.svc.cluster.local/sync-operator
   serviceAccount: kpack-service-account
   builder:
     name: go-builder
@@ -227,7 +227,7 @@ metadata:
   name: rag-agent
   namespace: kpack-system
 spec:
-  tag: docker.io/pyrodocker1/rag-agent
+  tag: docker.io/pyrodocker1/rag-agent # http://harbor.harbor.svc.cluster.local/rag-agent
   serviceAccount: kpack-service-account
   builder:
     name: python-builder

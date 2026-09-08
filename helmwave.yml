@@ -28,6 +28,8 @@ repositories:
     url: https://kyverno.github.io/kyverno/
   - name: falcosecurity
     url: https://falcosecurity.github.io/charts
+  - name: harbor
+    url: https://helm.goharbor.io
 
 releases:
   - name: kubewatch
@@ -55,6 +57,19 @@ releases:
             deployment: true
             coreevent: true
             services: true
+
+  - name: sealed-secrets
+    namespace: sealed-secrets
+    create_namespace: true
+    chart: sealed-secrets/sealed-secrets
+    version: 2.13.0
+    values:
+      - inline: |
+          fullnameOverride: sealed-secrets
+          service:
+            port: 8080
+          metrics:
+            enabled: false
 
   - name: cilium
     namespace: kube-system
@@ -157,12 +172,105 @@ releases:
     version: 4.0.0
     values:
       - inline: |
+          driver:
+            kind: ebpf
           tty: true
           falco:
             rules_file:
               - /etc/falco/falco_rules.yaml
               - /etc/falco/falco_rules.local.yaml
               - /etc/falco/rules.d
+          customRules:
+            custom-falco-rules: |
+              - macro: container
+                condition: (container.id != "")
+            
+              - rule: Java Decompilation Attempt
+                desc: Detect javap command used to decompile .class files
+                condition: >
+                  evt.type = execve and 
+                  container and
+                  (proc.name = "javap" or proc.cmdline contains "javap")
+                output: >
+                  Java decompilation attempted in container
+                  (pod=%k8s.pod.name namespace=%k8s.ns.name 
+                  user=%user.name command=%proc.cmdline)
+                priority: CRITICAL
+                tags: [java, decompile, mitre_TA0008]
+            
+              - rule: Java Compilation Attempt
+                desc: Detect javac compilation in containers
+                condition: >
+                  evt.type = execve and 
+                  container and
+                  (proc.name = "javac" or proc.cmdline contains "javac")
+                output: >
+                  Java compilation attempted in container
+                  (pod=%k8s.pod.name namespace=%k8s.ns.name 
+                  command=%proc.cmdline)
+                priority: CRITICAL
+                tags: [java, compile]
+            
+              - rule: JAR Extraction Attempt
+                desc: Detect jar command extracting files
+                condition: >
+                  evt.type = execve and 
+                  container and
+                  proc.name = "jar" and 
+                  (proc.cmdline contains "xf" or proc.cmdline contains "xvf")
+                output: >
+                  JAR extraction attempted in container
+                  (pod=%k8s.pod.name namespace=%k8s.ns.name 
+                  args=%proc.cmdline)
+                priority: CRITICAL
+                tags: [java, extraction]
+            
+              - rule: Python Code Injection
+                desc: Detect dangerous Python commands
+                condition: >
+                  evt.type = execve and 
+                  container and
+                  proc.name in (python, python3) and
+                  (proc.cmdline contains "-c" and 
+                   (proc.cmdline contains "import os" or 
+                    proc.cmdline contains "import subprocess" or
+                    proc.cmdline contains "__import__" or
+                    proc.cmdline contains "exec("))
+                output: >
+                  Python code injection detected
+                  (pod=%k8s.pod.name namespace=%k8s.ns.name 
+                  command=%proc.cmdline)
+                priority: CRITICAL
+                tags: [python, injection]
+            
+              - rule: Pip Install
+                desc: Detect pip install in containers
+                condition: >
+                  evt.type = execve and 
+                  container and
+                  proc.name in (pip, pip3) and
+                  proc.cmdline contains "install"
+                output: >
+                  Pip install attempted in container
+                  (pod=%k8s.pod.name namespace=%k8s.ns.name 
+                  package=%proc.cmdline)
+                priority: CRITICAL
+                tags: [python, supply_chain]
+            
+              - rule: Go Build in Container
+                desc: Detect go build/run in containers
+                condition: >
+                  evt.type = execve and 
+                  container and
+                  proc.name = "go" and
+                  (proc.cmdline contains "build" or 
+                   proc.cmdline contains "run")
+                output: >
+                  Go build/run detected in container
+                  (pod=%k8s.pod.name namespace=%k8s.ns.name 
+                  command=%proc.cmdline)
+                priority: CRITICAL
+                tags: [golang, compilation]
 
   - name: openfaas
     namespace: openfaas
@@ -202,7 +310,7 @@ releases:
   - name: grafana
     namespace: monitoring
     chart: grafana/grafana
-    version: 8.0.0
+    version: 8.5.0
     values:
       - inline: |
           adminPassword: admin
@@ -220,7 +328,107 @@ releases:
     version: v23.9.0
     enabled: false
 
+  - name: harbor
+    namespace: harbor
+    create_namespace: true
+    chart: harbor/harbor
+    version: 2.14.0
+    enabled: false
+    values:
+      - inline: |
+          expose:
+            type: clusterIP
+            tls:
+              enabled: false
+            ingress:
+              enabled: false
+          externalURL: http://harbor.harbor.svc.cluster.local:8091
+          database:
+            type: internal
+            internal:
+              persistence:
+                enabled: true
+                storageClass: longhorn-custom
+                size: 5Gi
+          redis:
+            type: internal
+            internal:
+              persistence:
+                enabled: true
+                storageClass: longhorn-custom
+                size: 2Gi
+          persistence:
+            enabled: true
+            persistentVolumeClaim:
+              registry:
+                storageClass: longhorn-custom
+                accessMode: ReadWriteOnce
+                size: 20Gi
+              jobservice:
+                storageClass: longhorn-custom
+                accessMode: ReadWriteOnce
+                size: 5Gi
+          portal:
+            replicas: 1
+          core:
+            replicas: 1
+          jobservice:
+            replicas: 1
+            jobLogger: database
+          registry:
+            replicas: 1
+          trivy:
+            replicas: 1
+          chartmuseum:
+            replicas: 1
+          harborAdminPassword: "password"
+          logLevel: info
+
 resources:
+  - path: harbor/federated-service.yaml
+    content: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: harbor-federated
+        namespace: harbor
+      spec:
+        type: ExternalName
+        externalName: harbor.harbor.svc.cluster.local
+        ports:
+        - port: 8091
+          targetPort: 8091
+
+  - path: watcher/watcher.yaml
+    content: |
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: kubewatch-event-reader
+      rules:
+        - apiGroups: ["events.k8s.io"]
+          resources: ["events"]
+          verbs: ["get", "list", "watch"]
+        - apiGroups: [ "apps/v1" ]
+          resources: [ "deployments", "daemonsets", "statefulsets" ]
+          verbs: [ "get", "list", "watch" ]
+        - apiGroups: [ "" ]
+          resources: [ "pods", "services", "namespaces", "events" ]
+          verbs: [ "get", "list", "watch" ]
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: kubewatch-event-reader
+      subjects:
+        - kind: ServiceAccount
+          name: kubewatch
+          namespace: watcher
+      roleRef:
+        kind: ClusterRole
+        name: kubewatch-event-reader
+        apiGroup: rbac.authorization.k8s.io
+
   - path: storageclass.yaml
     content: |
       apiVersion: storage.k8s.io/v1
@@ -260,11 +468,11 @@ resources:
   - path: kubernetes/admission-policies/no-default-namespace.yaml
   - path: kubernetes/admission-policies/no-nodeport-services.yaml
   - path: kubernetes/admission-policies/tracing-policy.yaml
-  - path: kubernetes/admission-policies/falco-rules.yaml
   - path: kubernetes/storage/encryption-secret.yaml
 
 order:
   - kubewatch
+  - sealed-secrets
   - longhorn
   - sealed-secrets
   - cert-manager
@@ -276,6 +484,7 @@ order:
   - prometheus
   - grafana
   - gpu-operator
+  - harbor
   - resources
 
 hooks:
@@ -290,3 +499,24 @@ hooks:
       description: Ensure Kyverno policies are applied
       command: |
         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=kyverno -n kyverno --timeout=120s
+
+    - name: annotate-harbor-ns
+      description: Annotate Harbor NS
+      command: |
+        kubectl label namespace harbor pod-security.kubernetes.io/enforce=baseline --overwrite
+        kubectl label namespace harbor pod-security.kubernetes.io/audit=baseline --overwrite
+        kubectl label namespace harbor pod-security.kubernetes.io/warn=baseline --overwrite
+
+    - name: annotate-watcher-ns
+      description: Annotate KubeWatch NS
+      command: |
+        kubectl label namespace watcher pod-security.kubernetes.io/enforce=baseline --overwrite
+        kubectl label namespace watcher pod-security.kubernetes.io/audit=baseline --overwrite
+        kubectl label namespace watcher pod-security.kubernetes.io/warn=baseline --overwrite
+
+    - name: annotate-watcher-ns
+      description: Annotate Sealed Secrets NS
+      command: |
+        kubectl label sealed-secrets watcher pod-security.kubernetes.io/enforce=baseline --overwrite
+        kubectl label sealed-secrets watcher pod-security.kubernetes.io/audit=baseline --overwrite
+        kubectl label sealed-secrets watcher pod-security.kubernetes.io/warn=baseline --overwrite
