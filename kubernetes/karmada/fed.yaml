@@ -107,13 +107,30 @@ spec:
       kind: Role
     - apiVersion: v1
       kind: ServiceAccount
+    - apiVersion: cilium.io/v2
+      kind: CiliumClusterwideEnvoyConfig
+      name: ingress-ratelimit
+    - apiVersion: autoscaling/v2
+      kind: HorisontalPodAutoscaler
+    - apiVersion: policy/v1
+      kind: PodDisruptionBudget
+    - apiVersion: v1
+      kind: ConfigMap
+    - apiVersion: v1
+      kind: Secret
+    - apiVersion: bitnami.com/v1alpha1
+      kind: SealedSecret 
+    - apiVersion: monitoring.coreos.com/v1
+      kind: PrometheusRule
+    - apiVersion: monitoring.coreos.com/v1
+      kind: ServiceMonitor
+    - apiVersion: openfaas.com/v1
+      kind: Function
   placement:
     clusterAffinity:
       clusterNames: [member1, member2]
     replicaScheduling:
       replicaSchedulingType: Duplicated
-
-
 
 # kubectl config use-context <CONTEXT_NAME>
 
