@@ -133,6 +133,18 @@ spec:
       clusterNames: [member1, member2]
     replicaScheduling:
       replicaSchedulingType: Duplicated
+---
+apiVersion: operator.karmada.io/v1alpha1
+kind: Karmada
+metadata:
+  name: karmada-replica
+  namespace: karmada-system
+spec:
+  components:
+    karmadaAPIServer:
+      replicas: 2
+    karmadaControllerManager:
+      replicas: 2
 
 # kubectl config use-context <CONTEXT_NAME>
 
@@ -248,3 +260,5 @@ spec:
 
 #  helm install longhorn longhorn/longhorn --namespace longhorn-system --kube-context kind-member1 --create-namespace --version 1.11.2
 #  helm install longhorn longhorn/longhorn --namespace longhorn-system --kube-context kind-member2 --create-namespace --version 1.11.2
+
+# helm install karmada-operator karmada/karmada-operator -n karmada-system --create-namespace
