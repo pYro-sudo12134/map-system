@@ -97,7 +97,7 @@ spec:
     matchExpressions:
       - key: kubernetes.io/metadata.name
         operator: In
-        values: [ism-system, openfaas, openfaas-fn, monitoring, ingress]
+        values: [ism-system, openfaas, openfaas-fn, monitoring, ingress, argocd]
   resourceSelectors:
     - apiVersion: cilium.io/v2
       kind: CiliumNetworkPolicy
@@ -111,7 +111,7 @@ spec:
       kind: CiliumClusterwideEnvoyConfig
       name: ingress-ratelimit
     - apiVersion: autoscaling/v2
-      kind: HorisontalPodAutoscaler
+      kind: HorizontalPodAutoscaler
     - apiVersion: policy/v1
       kind: PodDisruptionBudget
     - apiVersion: v1
@@ -126,6 +126,8 @@ spec:
       kind: ServiceMonitor
     - apiVersion: openfaas.com/v1
       kind: Function
+    - apiVersion: argoproj.io/v1alpha1
+      kind: Application
   placement:
     clusterAffinity:
       clusterNames: [member1, member2]
