@@ -32,6 +32,7 @@ spec:
       - port: "443"
         protocol: TCP
 ---
+apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: kpack-egress-allow

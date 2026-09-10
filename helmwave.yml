@@ -58,19 +58,6 @@ releases:
             coreevent: true
             services: true
 
-  - name: sealed-secrets
-    namespace: sealed-secrets
-    create_namespace: true
-    chart: sealed-secrets/sealed-secrets
-    version: 2.13.0
-    values:
-      - inline: |
-          fullnameOverride: sealed-secrets
-          service:
-            port: 8080
-          metrics:
-            enabled: false
-
   - name: cilium
     namespace: kube-system
     chart: cilium/cilium
