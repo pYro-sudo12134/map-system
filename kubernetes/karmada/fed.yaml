@@ -141,6 +141,8 @@ metadata:
   namespace: karmada-system
 spec:
   components:
+    etcd:
+      local: { }
     karmadaAPIServer:
       replicas: 2
     karmadaControllerManager:
