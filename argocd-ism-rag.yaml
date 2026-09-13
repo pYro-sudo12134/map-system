@@ -3,30 +3,47 @@ kind: Application
 metadata:
   name: ism-rag
   namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: map-system
   annotations:
-    argocd-image-updater.argoproj.io/image-list: |
-      rag-agent=docker.io/pyrodocker1/rag-agent
-    argocd-image-updater.argoproj.io/auth-service.allow-tags: regexp:^0\.\d+\.\d+$
-    argocd-image-updater.argoproj.io/rag-agent.update-strategy: digest
+    argocd-image-updater.argoproj.io/image-list: rag-agent=docker.io/pyrodocker1/rag-agent
+    argocd-image-updater.argoproj.io/rag-agent.update-strategy: semver
+    argocd-image-updater.argoproj.io/rag-agent.allow-tags: regexp:^0\.\d+\.\d+$
     argocd-image-updater.argoproj.io/update-interval: 5m
-
 spec:
   project: default
   source:
     repoURL: https://github.com/pYro-sudo12134/map-system
     targetRevision: master
     path: helm/ism-system/charts/rag-agent
-
   destination:
     server: https://kubernetes.default.svc
     namespace: ism-rag
-
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+      allowEmpty: false
     syncOptions:
       - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+    preserveResourcesOnDeletion: true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: "*"
+      kind: "*"
+      managedFieldsManagers:
+        - karmada-controller-manager
 
 #  kubectl -n argocd create secret generic github-app \
 #  --type=argocd.argoproj.io/github-app \

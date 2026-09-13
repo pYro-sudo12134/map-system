@@ -3,31 +3,51 @@ kind: Application
 metadata:
   name: faas
   namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: map-system
   annotations:
-    argocd-image-updater.argoproj.io/image-list: |
-      rag-agent=docker.io/pyrodocker1/faas-m
-      rag-agent=docker.io/pyrodocker1/faas-s
-    argocd-image-updater.argoproj.io/auth-service.allow-tags: regexp:^0\.\d+\.\d+$
-    argocd-image-updater.argoproj.io/rag-agent.update-strategy: digest
+    argocd-image-updater.argoproj.io/image-list: >-
+      faas-m=docker.io/pyrodocker1/faas-m,
+      faas-s=docker.io/pyrodocker1/faas-s
+    argocd-image-updater.argoproj.io/faas-m.update-strategy: semver
+    argocd-image-updater.argoproj.io/faas-m.allow-tags: regexp:^0\.\d+\.\d+$
+    argocd-image-updater.argoproj.io/faas-s.update-strategy: semver
+    argocd-image-updater.argoproj.io/faas-s.allow-tags: regexp:^0\.\d+\.\d+$
     argocd-image-updater.argoproj.io/update-interval: 5m
-
 spec:
   project: default
   source:
     repoURL: https://github.com/pYro-sudo12134/map-system
     targetRevision: master
     path: helm/faas/charts/
-
   destination:
     server: https://kubernetes.default.svc
     namespace: openfaas-fn
-
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+      allowEmpty: false
     syncOptions:
       - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+    preserveResourcesOnDeletion: true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: "*"
+      kind: "*"
+      managedFieldsManagers:
+        - karmada-controller-manager
 
 #  kubectl -n argocd create secret generic github-app \
 #  --type=argocd.argoproj.io/github-app \

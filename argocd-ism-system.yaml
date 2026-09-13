@@ -3,36 +3,57 @@ kind: Application
 metadata:
   name: ism-system
   namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: map-system
   annotations:
-    argocd-image-updater.argoproj.io/image-list: |
+    argocd-image-updater.argoproj.io/image-list: >-
       auth-service=docker.io/pyrodocker1/auth-service,
       map-router=docker.io/pyrodocker1/map-router,
       map-operator=docker.io/pyrodocker1/map-operator,
       sync-operator=docker.io/pyrodocker1/sync-operator
+    argocd-image-updater.argoproj.io/auth-service.update-strategy: semver
     argocd-image-updater.argoproj.io/auth-service.allow-tags: regexp:^0\.\d+\.\d+$
-    argocd-image-updater.argoproj.io/auth-service.update-strategy: digest
-    argocd-image-updater.argoproj.io/map-router.update-strategy: digest
-    argocd-image-updater.argoproj.io/map-operator.update-strategy: digest
-    argocd-image-updater.argoproj.io/sync-operator.update-strategy: digest
+    argocd-image-updater.argoproj.io/map-router.update-strategy: semver
+    argocd-image-updater.argoproj.io/map-router.allow-tags: regexp:^0\.\d+\.\d+$
+    argocd-image-updater.argoproj.io/map-operator.update-strategy: semver
+    argocd-image-updater.argoproj.io/map-operator.allow-tags: regexp:^0\.\d+\.\d+$
+    argocd-image-updater.argoproj.io/sync-operator.update-strategy: semver
+    argocd-image-updater.argoproj.io/sync-operator.allow-tags: regexp:^0\.\d+\.\d+$
     argocd-image-updater.argoproj.io/update-interval: 5m
-
 spec:
   project: default
   source:
     repoURL: https://github.com/pYro-sudo12134/map-system
     targetRevision: master
     path: helm/ism-system/charts
-
   destination:
     server: https://kubernetes.default.svc
     namespace: ism-system
-
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+      allowEmpty: false
     syncOptions:
       - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+    preserveResourcesOnDeletion: true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: "*"
+      kind: "*"
+      managedFieldsManagers:
+        - karmada-controller-manager
 
 #  kubectl -n argocd create secret generic github-app \
 #  --type=argocd.argoproj.io/github-app \

@@ -1,0 +1,77 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: map-system
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+
+  generators:
+    - list:
+        elements:
+          - name: faas
+            path: helm/faas/charts/
+            namespace: openfaas-fn
+            imageList: "faas-m=docker.io/pyrodocker1/faas-m,faas-s=docker.io/pyrodocker1/faas-s"
+            images: [faas-m, faas-s]
+
+          - name: ism-rag
+            path: helm/ism-system/charts/rag-agent
+            namespace: ism-rag
+            imageList: "rag-agent=docker.io/pyrodocker1/rag-agent"
+            images: [rag-agent]
+
+          - name: ism-system
+            path: helm/ism-system/charts
+            namespace: ism-system
+            imageList: "auth-service=docker.io/pyrodocker1/auth-service,map-router=docker.io/pyrodocker1/map-router,map-operator=docker.io/pyrodocker1/map-operator,sync-operator=docker.io/pyrodocker1/sync-operator"
+            images: [auth-service, map-router, map-operator, sync-operator]
+
+  template:
+    metadata:
+      name: '{{.name}}'
+      namespace: argocd
+      labels:
+        app.kubernetes.io/part-of: map-system
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: '{{.imageList}}'
+        argocd-image-updater.argoproj.io/update-interval: 5m
+        {{- range .images }}
+        argocd-image-updater.argoproj.io/{{ . }}.update-strategy: semver
+        argocd-image-updater.argoproj.io/{{ . }}.allow-tags: regexp:^0\.\d+\.\d+$
+        {{- end }}
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/pYro-sudo12134/map-system
+        targetRevision: master
+        path: '{{.path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{.namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        preserveResourcesOnDeletion: true
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas
+        - group: "*"
+          kind: "*"
+          managedFieldsManagers:
+            - karmada-controller-manager
