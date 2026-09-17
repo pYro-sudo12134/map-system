@@ -16,9 +16,30 @@ env:
   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
 
 jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Vet
+        working-directory: map-operator
+        run: go vet ./...
+
+      - name: Run tests
+        working-directory: map-operator
+        run: go test ./...
+
   build-and-push:
     name: Build and push Docker image
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
