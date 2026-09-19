@@ -194,6 +194,51 @@ spec:
           averageUtilization: 75
 ---
 apiVersion: autoscaling.karmada.io/v1alpha1
+kind: CronFederatedHPA
+metadata:
+  name: map-router-cron-hpa
+  namespace: ism-system
+spec:
+  scaleTargetRef:
+    apiVersion: autoscaling.karmada.io/v1alpha1
+    kind: FederatedHPA
+    name: map-router-fhpa
+  rules:
+    - name: business-hours-widen
+      schedule: "0 8 * * MON-FRI"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 10
+      successfulHistoryLimit: 5
+      failedHistoryLimit: 5
+    - name: business-hours-narrow
+      schedule: "0 20 * * MON-FRI"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 10
+    - name: weekend-floor
+      schedule: "0 0 * * SAT"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 5
+---
+apiVersion: apps.karmada.io/v1alpha1
+kind: WorkloadRebalancer
+metadata:
+  name: rebalance-map-router
+spec:
+  workloads:
+    - apiVersion: apps/v1
+      kind: Deployment
+      namespace: ism-system
+      name: map-router
+    - apiVersion: v1
+      kind: Service
+      namespace: ism-system
+      name: map-router
+  ttlSecondsAfterFinished: 60
+---
+apiVersion: autoscaling.karmada.io/v1alpha1
 kind: FederatedHPA
 metadata:
   name: map-operator-fhpa
@@ -235,6 +280,51 @@ spec:
         target:
           type: Utilization
           averageUtilization: 75
+---
+apiVersion: autoscaling.karmada.io/v1alpha1
+kind: CronFederatedHPA
+metadata:
+  name: map-operator-cron-hpa
+  namespace: ism-system
+spec:
+  scaleTargetRef:
+    apiVersion: autoscaling.karmada.io/v1alpha1
+    kind: FederatedHPA
+    name: map-operator-fhpa
+  rules:
+    - name: business-hours-widen
+      schedule: "0 8 * * MON-FRI"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 10
+      successfulHistoryLimit: 5
+      failedHistoryLimit: 5
+    - name: business-hours-narrow
+      schedule: "0 20 * * MON-FRI"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 10
+    - name: weekend-floor
+      schedule: "0 0 * * SAT"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 5
+---
+apiVersion: apps.karmada.io/v1alpha1
+kind: WorkloadRebalancer
+metadata:
+  name: rebalance-map-router
+spec:
+  workloads:
+    - apiVersion: apps/v1
+      kind: Deployment
+      namespace: ism-system
+      name: map-operator
+    - apiVersion: v1
+      kind: Service
+      namespace: ism-system
+      name: map-operator
+  ttlSecondsAfterFinished: 60
 ---
 apiVersion: autoscaling.karmada.io/v1alpha1
 kind: FederatedHPA
@@ -280,6 +370,51 @@ spec:
           averageUtilization: 75
 ---
 apiVersion: autoscaling.karmada.io/v1alpha1
+kind: CronFederatedHPA
+metadata:
+  name: sync-operator-cron-hpa
+  namespace: ism-system
+spec:
+  scaleTargetRef:
+    apiVersion: autoscaling.karmada.io/v1alpha1
+    kind: FederatedHPA
+    name: sync-operator-fhpa
+  rules:
+    - name: business-hours-widen
+      schedule: "0 8 * * MON-FRI"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 10
+      successfulHistoryLimit: 5
+      failedHistoryLimit: 5
+    - name: business-hours-narrow
+      schedule: "0 20 * * MON-FRI"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 10
+    - name: weekend-floor
+      schedule: "0 0 * * SAT"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 5
+---
+apiVersion: apps.karmada.io/v1alpha1
+kind: WorkloadRebalancer
+metadata:
+  name: rebalance-map-router
+spec:
+  workloads:
+    - apiVersion: apps/v1
+      kind: Deployment
+      namespace: ism-system
+      name: sync-operator
+    - apiVersion: v1
+      kind: Service
+      namespace: ism-system
+      name: sync-operator
+  ttlSecondsAfterFinished: 60
+---
+apiVersion: autoscaling.karmada.io/v1alpha1
 kind: FederatedHPA
 metadata:
   name: auth-service-fhpa
@@ -321,6 +456,110 @@ spec:
         target:
           type: Utilization
           averageUtilization: 75
+---
+apiVersion: autoscaling.karmada.io/v1alpha1
+kind: CronFederatedHPA
+metadata:
+  name: auth-cron-hpa
+  namespace: ism-system
+spec:
+  scaleTargetRef:
+    apiVersion: autoscaling.karmada.io/v1alpha1
+    kind: FederatedHPA
+    name: auth-service-fhpa
+  rules:
+    - name: business-hours-widen
+      schedule: "0 8 * * MON-FRI"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 10
+      successfulHistoryLimit: 5
+      failedHistoryLimit: 5
+    - name: business-hours-narrow
+      schedule: "0 20 * * MON-FRI"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 10
+    - name: weekend-floor
+      schedule: "0 0 * * SAT"
+      timeZone: Europe/Minsk
+      targetMinReplicas: 1
+      targetMaxReplicas: 5
+---
+apiVersion: apps.karmada.io/v1alpha1
+kind: WorkloadRebalancer
+metadata:
+  name: auth-service
+spec:
+  workloads:
+    - apiVersion: apps/v1
+      kind: Deployment
+      namespace: ism-system
+      name: auth-service
+    - apiVersion: v1
+      kind: Service
+      namespace: ism-system
+      name: auth-service
+  ttlSecondsAfterFinished: 60
+---
+apiVersion: search.karmada.io/v1alpha1
+kind: ResourceRegistry
+metadata:
+  name: workloads
+spec:
+  resourceSelectors:
+    - apiVersion: apps/v1
+      kind: Deployment
+      namespace: ism-system
+    - apiVersion: apps/v1
+      kind: StatefulSet
+      namespace: ism-system
+    - apiVersion: v1
+      kind: Service
+      namespace: ism-system
+    - apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      namespace: ism-system
+    - apiVersion: policy/v1
+      kind: PodDisruptionBudget
+      namespace: ism-system
+    - apiVersion: bitnami.com/v1alpha1
+      kind: SealedSecret
+      namespace: ism-system
+    - apiVersion: v1
+      kind: ConfigMap
+      namespace: ism-system
+    - apiVersion: v1
+      kind: ServiceAccount
+      namespace: ism-system
+  targetCluster:
+    clusterNames: [member1, member2]
+  backendStore:
+    openSearch:
+      addresses:
+        - https://opensearch-cluster-master.database.svc.cluster.local:9200
+      secretRef:
+        name: opensearch-credentials
+        namespace: database
+---
+apiVersion: remedy.karmada.io/v1alpha1
+kind: Remedy
+metadata:
+  name: evict-from-unready
+spec:
+  actions:
+    - Evict
+  clusterAffinity:
+    clusterNames: [member1, member2]
+  decisionMatches:
+    - clusterConditionMatch:
+        conditionType: Ready
+        conditionStatus: "False"
+        operator: Equal
+    - clusterConditionMatch:
+        conditionType: Ready
+        conditionStatus: Unknown
+        operator: Equal
 
 # kubectl config use-context <CONTEXT_NAME>
 
