@@ -313,7 +313,7 @@ spec:
 apiVersion: apps.karmada.io/v1alpha1
 kind: WorkloadRebalancer
 metadata:
-  name: rebalance-map-router
+  name: rebalance-map-operator
 spec:
   workloads:
     - apiVersion: apps/v1
@@ -401,7 +401,7 @@ spec:
 apiVersion: apps.karmada.io/v1alpha1
 kind: WorkloadRebalancer
 metadata:
-  name: rebalance-map-router
+  name: rebalance-sync-operator
 spec:
   workloads:
     - apiVersion: apps/v1
@@ -560,6 +560,12 @@ spec:
         conditionType: Ready
         conditionStatus: Unknown
         operator: Equal
+#---
+#apiVersion: apps.karmada.io/v1alpha1
+#kind: WorkloadRebalancerList
+#metadata:
+#  name: rebalancer-registry
+#items: [ auth-service, rebalance-map-router, rebalance-map-operator, rebalance-sync-operator ]
 
 # kubectl config use-context <CONTEXT_NAME>
 
