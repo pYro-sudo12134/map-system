@@ -1,0 +1,296 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: DockerClusterTemplate
+metadata:
+  name: docker-cilium-cluster-template
+  namespace: default
+spec:
+  template:
+    spec: {}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: DockerMachineTemplate
+metadata:
+  name: docker-cilium-control-plane
+  namespace: default
+spec:
+  template:
+    spec: {}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: DockerMachineTemplate
+metadata:
+  name: docker-cilium-default-worker
+  namespace: default
+spec:
+  template:
+    spec: {}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: DockerMachineTemplate
+metadata:
+  name: docker-cilium-small-worker
+  namespace: default
+spec:
+  template:
+    spec: {}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlaneTemplate
+metadata:
+  name: docker-cilium-control-plane
+  namespace: default
+spec:
+  template:
+    spec:
+      machineTemplate:
+        infrastructureRef:
+          apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+          kind: DockerMachineTemplate
+          name: docker-cilium-control-plane
+      kubeadmConfigSpec:
+        clusterConfiguration:
+          apiServer:
+            certSANs: ["127.0.0.1", "localhost"]
+          controllerManager:
+            extraArgs:
+              allocate-node-cidrs: "true"
+        initConfiguration:
+          skipPhases: [addon/kube-proxy]
+          nodeRegistration:
+            criSocket: unix:///var/run/containerd/containerd.sock
+            kubeletExtraArgs:
+              - name: cgroup-driver
+                value: systemd
+        joinConfiguration:
+          nodeRegistration:
+            criSocket: unix:///var/run/containerd/containerd.sock
+            kubeletExtraArgs:
+              - name: cgroup-driver
+                value: systemd
+      rolloutStrategy:
+        rollingUpdate:
+          maxSurge: 1
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: docker-cilium-default-worker
+  namespace: default
+spec:
+  template:
+    spec:
+      joinConfiguration:
+        nodeRegistration:
+          criSocket: unix:///var/run/containerd/containerd.sock
+          kubeletExtraArgs:
+            - name: cgroup-driver
+              value: systemd
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: docker-cilium-small-worker
+  namespace: default
+spec:
+  template:
+    spec:
+      joinConfiguration:
+        nodeRegistration:
+          criSocket: unix:///var/run/containerd/containerd.sock
+          kubeletExtraArgs:
+            - name: cgroup-driver
+              value: systemd
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: ClusterClass
+metadata:
+  name: docker-cilium
+  namespace: default
+spec:
+  infrastructure:
+    ref:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: DockerClusterTemplate
+      name: docker-cilium-cluster-template
+  controlPlane:
+    ref:
+      apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+      kind: KubeadmControlPlaneTemplate
+      name: docker-cilium-control-plane
+    machineInfrastructure:
+      ref:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: DockerMachineTemplate
+        name: docker-cilium-control-plane
+  workers:
+    machineDeployments:
+      - class: default-worker
+        template:
+          bootstrap:
+            ref:
+              apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+              kind: KubeadmConfigTemplate
+              name: docker-cilium-default-worker
+          infrastructure:
+            ref:
+              apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+              kind: DockerMachineTemplate
+              name: docker-cilium-default-worker
+      - class: small-worker
+        template:
+          bootstrap:
+            ref:
+              apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+              kind: KubeadmConfigTemplate
+              name: docker-cilium-small-worker
+          infrastructure:
+            ref:
+              apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+              kind: DockerMachineTemplate
+              name: docker-cilium-small-worker
+  variables:
+    - name: podCIDR
+      schema:
+        openAPIV3Schema:
+          type: string
+          default: "10.244.0.0/16"
+    - name: serviceCIDR
+      schema:
+        openAPIV3Schema:
+          type: string
+          default: "10.96.0.0/12"
+  patches:
+    - name: podCIDR
+      definitions:
+        - selector:
+            apiVersion: cluster.x-k8s.io/v1beta1
+            kind: Cluster
+            match: "spec.clusterNetwork.pods[0].cidrBlocks[0]"
+          jsonPatches:
+            - op: add
+              path: /spec/clusterNetwork/pods/0/cidrBlocks/0
+              valueFrom:
+                variable: podCIDR
+    - name: serviceCIDR
+      definitions:
+        - selector:
+            apiVersion: cluster.x-k8s.io/v1beta1
+            kind: Cluster
+            match: "spec.clusterNetwork.services[0].cidrBlocks[0]"
+          jsonPatches:
+            - op: add
+              path: /spec/clusterNetwork/services/0/cidrBlocks/0
+              valueFrom:
+                variable: serviceCIDR
+    - name: kcp-podCIDR
+      definitions:
+        - selector:
+            apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+            kind: KubeadmControlPlaneTemplate
+            match: "spec.template.spec.kubeadmConfigSpec.clusterConfiguration.networking.podSubnet"
+          jsonPatches:
+            - op: add
+              path: /spec/template/spec/kubeadmConfigSpec/clusterConfiguration/networking/podSubnet
+              valueFrom:
+                variable: podCIDR
+    - name: kcp-serviceCIDR
+      definitions:
+        - selector:
+            apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+            kind: KubeadmControlPlaneTemplate
+            match: "spec.template.spec.kubeadmConfigSpec.clusterConfiguration.networking.serviceSubnet"
+          jsonPatches:
+            - op: add
+              path: /spec/template/spec/kubeadmConfigSpec/clusterConfiguration/networking/serviceSubnet
+              valueFrom:
+                variable: serviceCIDR
+    - name: default-worker-ca
+      definitions:
+        - selector:
+            apiVersion: cluster.x-k8s.io/v1beta1
+            kind: MachineDeployment
+            match: "metadata.labels['topology.cluster.x-k8s.io/deployment-name'] == 'md-default'"
+          jsonPatches:
+            - op: add
+              path: /metadata/annotations/cluster.x-k8s.io~1cluster-api-autoscaler-node-group-min-size
+              value: "1"
+            - op: add
+              path: /metadata/annotations/cluster.x-k8s.io~1cluster-api-autoscaler-node-group-max-size
+              value: "8"
+    - name: small-worker-ca
+      definitions:
+        - selector:
+            apiVersion: cluster.x-k8s.io/v1beta1
+            kind: MachineDeployment
+            match: "metadata.labels['topology.cluster.x-k8s.io/deployment-name'] == 'md-small'"
+          jsonPatches:
+            - op: add
+              path: /metadata/annotations/cluster.x-k8s.io~1cluster-api-autoscaler-node-group-min-size
+              value: "1"
+            - op: add
+              path: /metadata/annotations/cluster.x-k8s.io~1cluster-api-autoscaler-node-group-max-size
+              value: "2"
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: host-control-plane-mhc
+  namespace: default
+spec:
+  clusterName: host
+  maxUnhealthy: "0%"
+  nodeStartupTimeout: 10m
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/control-plane: ""
+  unhealthyConditions:
+    - type: Ready
+      status: "Unknown"
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: member1-md-default-mhc
+  namespace: default
+spec:
+  clusterName: member1
+  maxUnhealthy: "40%"
+  nodeStartupTimeout: 10m
+  selector:
+    matchLabels:
+      topology.cluster.x-k8s.io/deployment-name: md-default
+  unhealthyConditions:
+    - type: Ready
+      status: "Unknown"
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: member2-md-default-mhc
+  namespace: default
+spec:
+  clusterName: member2
+  maxUnhealthy: "40%"
+  nodeStartupTimeout: 10m
+  selector:
+    matchLabels:
+      topology.cluster.x-k8s.io/deployment-name: md-default
+  unhealthyConditions:
+    - type: Ready
+      status: "Unknown"
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
+---
+
+# # nevertheless, this setup is purely for development
+#kubectl --context kind-capi-mgmt apply -f docker-cluster-class.yaml

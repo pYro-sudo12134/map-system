@@ -1,0 +1,270 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: host
+  namespace: default
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["10.244.0.0/16"]
+    services:
+      cidrBlocks: ["10.96.0.0/12"]
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: DockerCluster
+    name: host
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KubeadmControlPlane
+    name: host-control-plane
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: DockerCluster
+metadata:
+  name: host
+  namespace: default
+spec: {}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: DockerMachineTemplate
+metadata:
+  name: host-control-plane
+  namespace: default
+spec:
+  template:
+    spec: {}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: DockerMachineTemplate
+metadata:
+  name: host-md-0
+  namespace: default
+spec:
+  template:
+    spec: {}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+metadata:
+  name: host-control-plane
+  namespace: default
+spec:
+  replicas: 1
+  version: v1.31.0
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: DockerMachineTemplate
+      name: host-control-plane
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      apiServer:
+        certSANs: ["127.0.0.1", "localhost"]
+      controllerManager:
+        extraArgs:
+          allocate-node-cidrs: "true"
+    initConfiguration:
+      skipPhases:
+        - addon/kube-proxy
+      nodeRegistration:
+        criSocket: unix:///var/run/containerd/containerd.sock
+        kubeletExtraArgs:
+          - name: cgroup-driver
+            value: systemd
+    joinConfiguration:
+      nodeRegistration:
+        criSocket: unix:///var/run/containerd/containerd.sock
+        kubeletExtraArgs:
+          - name: cgroup-driver
+            value: systemd
+  rolloutStrategy:
+    rollingUpdate:
+      maxSurge: 1
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: host-md-0
+  namespace: default
+spec:
+  template:
+    spec:
+      joinConfiguration:
+        nodeRegistration:
+          criSocket: unix:///var/run/containerd/containerd.sock
+          kubeletExtraArgs:
+            - name: cgroup-driver
+              value: systemd
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: host-md-0
+  namespace: default
+  annotations:
+    cluster.x-k8s.io/cluster-api-autoscaler-node-group-min-size: "1"
+    cluster.x-k8s.io/cluster-api-autoscaler-node-group-max-size: "2"
+spec:
+  clusterName: host
+  replicas: 1
+  selector:
+    matchLabels: {}
+  template:
+    spec:
+      clusterName: host
+      version: v1.31.0
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+          name: host-md-0
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: DockerMachineTemplate
+        name: host-md-0
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: host-control-plane-mhc
+  namespace: default
+spec:
+  clusterName: host
+  maxUnhealthy: "0%"
+  nodeStartupTimeout: 10m
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/control-plane: ""
+  unhealthyConditions:
+    - type: Ready
+      status: "Unknown"
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
+---
+
+# # IF TO USE CLUSTER CLASS:
+#apiVersion: cluster.x-k8s.io/v1beta1
+#kind: Cluster
+#metadata:
+#  name: host
+#  namespace: default
+#spec:
+#  topology:
+#    class: docker-cilium
+#    version: v1.31.0
+#    controlPlane:
+#      replicas: 1
+#    workers:
+#      machineDeployments:
+#        - class: small-worker
+#          name: md-small
+#          replicas: 1
+#    variables:
+#      - name: podCIDR
+#        value: "10.244.0.0/16"
+#      - name: serviceCIDR
+#        value: "10.96.0.0/12"
+
+
+#
+# # MINIMAL SETUP OF DOCKER mgmt CLUSTER:
+#  kind create cluster --name capi-mgmt --config - <<'EOF'
+#kind: Cluster
+#apiVersion: kind.x-k8s.io/v1alpha4
+#nodes:
+#  - role: control-plane
+#    extraMounts:
+#      - hostPath: /var/run/docker.sock
+#        containerPath: /var/run/docker.sock
+#  EOF
+#
+#  kubectl config use-context kind-capi-mgmt
+#  export EXP_CLUSTER_RESOURCE_SET=true
+#  clusterctl init --infrastructure docker
+#
+#  kubectl --context kind-capi-mgmt apply -f capi-host.yaml -f capi-member1.yaml -f capi-member2.yaml
+#
+#  clusterctl --kubeconfig ~/.kube/config describe cluster host
+#  clusterctl --kubeconfig ~/.kube/config describe cluster member1
+#  clusterctl --kubeconfig ~/.kube/config describe cluster member2
+#
+# # INSTALL CILIUM:
+#
+#  helm repo add cilium https://helm.cilium.io/ && helm repo update
+#
+#  kubectl --context kind-capi-mgmt get secret host-kubeconfig -o jsonpath='{.data.value}' | base64 -d > /tmp/host.kubeconfig
+#  kubectl --kubeconfig /tmp/host.kubeconfig config rename-context host-admin@host kind-karmada-host
+#  helm install cilium cilium/cilium -n kube-system --kubeconfig /tmp/host.kubeconfig \
+#  --set kubeProxyReplacement=true --set bpf.masquerade=true --set ipam.mode=kubernetes \
+#  --set k8sServiceHost=host-control-plane --set k8sServicePort=6443 \
+#  --set cluster.name=host --set cluster.id=0 \
+#  --set routingMode=tunnel --set tunnelProtocol=vxlan \
+#  --set clustermesh.useAPIServer=true --set clustermesh.apiserver.service.type=NodePort
+#
+#  kubectl --context kind-capi-mgmt get secret member1-kubeconfig -o jsonpath='{.data.value}' | base64 -d > /tmp/member1.kubeconfig
+#  kubectl --kubeconfig /tmp/member1.kubeconfig config rename-context member1-admin@member1 kind-member1
+#  helm install cilium cilium/cilium -n kube-system --kubeconfig /tmp/member1.kubeconfig \
+#  --set kubeProxyReplacement=true --set bpf.masquerade=true --set ipam.mode=kubernetes \
+#  --set k8sServiceHost=member1-control-plane --set k8sServicePort=6443 \
+#  --set cluster.name=member1 --set cluster.id=1 \
+#  --set routingMode=tunnel --set tunnelProtocol=vxlan \
+#  --set clustermesh.useAPIServer=true --set clustermesh.apiserver.service.type=NodePort
+#
+#  kubectl --context kind-capi-mgmt get secret member2-kubeconfig -o jsonpath='{.data.value}' | base64 -d > /tmp/member2.kubeconfig
+#  kubectl --kubeconfig /tmp/member2.kubeconfig config rename-context member2-admin@member2 kind-member2
+#  helm install cilium cilium/cilium -n kube-system --kubeconfig /tmp/member2.kubeconfig \
+#  --set kubeProxyReplacement=true --set bpf.masquerade=true --set ipam.mode=kubernetes \
+#  --set k8sServiceHost=member2-control-plane --set k8sServicePort=6443 \
+#  --set cluster.name=member2 --set cluster.id=2 \
+#  --set routingMode=tunnel --set tunnelProtocol=vxlan \
+#  --set clustermesh.useAPIServer=true --set clustermesh.apiserver.service.type=NodePort
+#
+# # IF NETWORK IS DOWN:
+#
+#  docker network connect kind host-control-plane 2>/dev/null
+#  docker network connect kind member1-control-plane 2>/dev/null
+#  docker network connect kind member2-control-plane 2>/dev/null
+#
+# # TOKENS:
+#
+#  export KUBECONFIG=/tmp/host.kubeconfig:/tmp/member1.kubeconfig:/tmp/member2.kubeconfig
+#  kubectl config view --flatten > /tmp/all.kubeconfig
+#  export KUBECONFIG=/tmp/all.kubeconfig
+#
+#  cilium clustermesh connect --context kind-karmada-host --destination-context kind-member1
+#  cilium clustermesh connect --context kind-karmada-host --destination-context kind-member2
+#
+#  karmadactl init --kubeconfig /tmp/host.kubeconfig
+#
+#  karmadactl --kubeconfig /tmp/host.kubeconfig token create --print-register-command
+#
+#  karmadactl register <host-apiserver-endpoint> \
+#  --token <token1> \
+#  --discovery-token-ca-cert-hash sha256:<hash1> \
+#  --karmada-kubeconfig=/etc/karmada/karmada-apiserver.config \
+#  --kubeconfig=/tmp/member1.kubeconfig \
+#  --cluster-name=member1
+#
+#  karmadactl --kubeconfig /tmp/host.kubeconfig token create --print-register-command
+#
+#  karmadactl register <host-apiserver-endpoint> \
+#  --token <token2> \
+#  --discovery-token-ca-cert-hash sha256:<hash2> \
+#  --karmada-kubeconfig=/etc/karmada/karmada-apiserver.config \
+#  --kubeconfig=/tmp/member2.kubeconfig \
+#  --cluster-name=member2
+#
+# # INSTALLATION OF CAPI HELM
+#
+#  helm repo add autoscaler https://kubernetes.github.io/autoscaler
+#  helm repo update
+#
+#  helm install cluster-autoscaler autoscaler/cluster-autoscaler \
+#  --kube-context kind-capi-mgmt \
+#  --namespace kube-system \
+#  --set cloudProvider=clusterapi \
+#  --set autoDiscovery.clusterName="" \
+#  --set 'extraArgs.clusterapi-namespace=default' \
+#  --set 'extraArgs.node-group-auto-discovery=clusterapi:namespace=default'

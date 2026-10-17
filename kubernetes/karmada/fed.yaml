@@ -145,6 +145,11 @@ spec:
   components:
     etcd:
       local: { }
+#spec:
+#  components:
+#    etcd:
+#      external:
+#        endpoints: ["https://etcd.karmada-system.svc:2379"]
     karmadaAPIServer:
       replicas: 2
     karmadaControllerManager:

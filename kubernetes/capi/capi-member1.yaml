@@ -1,0 +1,168 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: member1
+  namespace: default
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["10.245.0.0/16"]
+    services:
+      cidrBlocks: ["10.97.0.0/12"]
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: DockerCluster
+    name: member1
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KubeadmControlPlane
+    name: member1-control-plane
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: DockerCluster
+metadata:
+  name: member1
+  namespace: default
+spec: {}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: DockerMachineTemplate
+metadata:
+  name: member1-control-plane
+  namespace: default
+spec:
+  template:
+    spec: {}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: DockerMachineTemplate
+metadata:
+  name: member1-md-0
+  namespace: default
+spec:
+  template:
+    spec: {}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+metadata:
+  name: member1-control-plane
+  namespace: default
+spec:
+  replicas: 1
+  version: v1.31.0
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: DockerMachineTemplate
+      name: member1-control-plane
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      apiServer:
+        certSANs: ["127.0.0.1", "localhost"]
+      controllerManager:
+        extraArgs:
+          allocate-node-cidrs: "true"
+    initConfiguration:
+      skipPhases:
+        - addon/kube-proxy
+      nodeRegistration:
+        criSocket: unix:///var/run/containerd/containerd.sock
+        kubeletExtraArgs:
+          - name: cgroup-driver
+            value: systemd
+    joinConfiguration:
+      nodeRegistration:
+        criSocket: unix:///var/run/containerd/containerd.sock
+        kubeletExtraArgs:
+          - name: cgroup-driver
+            value: systemd
+  rolloutStrategy:
+    rollingUpdate:
+      maxSurge: 1
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: member1-md-0
+  namespace: default
+spec:
+  template:
+    spec:
+      joinConfiguration:
+        nodeRegistration:
+          criSocket: unix:///var/run/containerd/containerd.sock
+          kubeletExtraArgs:
+            - name: cgroup-driver
+              value: systemd
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: member1-md-0
+  namespace: default
+  annotations:
+    cluster.x-k8s.io/cluster-api-autoscaler-node-group-min-size: "1"
+    cluster.x-k8s.io/cluster-api-autoscaler-node-group-max-size: "8"
+spec:
+  clusterName: member1
+  replicas: 1
+  selector:
+    matchLabels: {}
+  template:
+    spec:
+      clusterName: member1
+      version: v1.31.0
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+          name: member1-md-0
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: DockerMachineTemplate
+        name: member1-md-0
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: member1-md-0-mhc
+  namespace: default
+spec:
+  clusterName: member1
+  maxUnhealthy: "40%"
+  nodeStartupTimeout: 10m
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/deployment-name: member1-md-0
+  unhealthyConditions:
+    - type: Ready
+      status: "Unknown"
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
+---
+
+# # IF TO USE CLUSTER CLASS:
+#apiVersion: cluster.x-k8s.io/v1beta1
+#kind: Cluster
+#metadata:
+#  name: member1
+#  namespace: default
+#spec:
+#  topology:
+#    class: docker-cilium
+#    version: v1.31.0
+#    controlPlane:
+#      replicas: 1
+#    workers:
+#      machineDeployments:
+#        - class: default-worker
+#          name: md-default
+#          replicas: 1
+#    variables:
+#      - name: podCIDR
+#        value: "10.245.0.0/16"
+#      - name: serviceCIDR
+#        value: "10.97.0.0/12"
