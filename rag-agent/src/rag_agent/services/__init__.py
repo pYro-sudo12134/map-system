@@ -1,3 +1,3 @@
-from .rag_service import RAGService
+from .rag_service import RAGService, rag_service
 
-__all__ = ["RAGService"]
+__all__ = ["RAGService", "rag_service"]

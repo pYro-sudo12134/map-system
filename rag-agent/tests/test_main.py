@@ -51,7 +51,7 @@ class TestMainFunctions:
 
     @pytest.mark.asyncio
     async def test_process_with_llm_and_save(self, sample_rag_request, sample_parsed_query):
-        with patch('rag_agent.main.RAGService.process', new_callable=AsyncMock) as mock_rag:
+        with patch('rag_agent.main.rag_service.process', new_callable=AsyncMock) as mock_rag:
             mock_rag.return_value = sample_parsed_query
             with patch('rag_agent.main.os_client.save_query') as mock_save:
 

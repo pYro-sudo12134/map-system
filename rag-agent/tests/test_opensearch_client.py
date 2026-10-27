@@ -188,3 +188,22 @@ class TestOpenSearchClient:
             result = os_client.save_query(stored)
 
             assert result is False
+
+    def test_find_similar_uses_passed_threshold(self, os_client):
+        os_client.client.search.return_value = {
+            "hits": {
+                "hits": [{
+                    "_score": 0.7,
+                    "_source": {"text": "test", "parsed_query": {}, "language": "en"}
+                }]
+            }
+        }
+
+        with patch('rag_agent.clients.opensearch_client.embedding_generator.encode') as mock_encode:
+            mock_encode.return_value = [0.1] * 384
+
+            assert os_client.find_similar("test text", "en") is None
+            result = os_client.find_similar("test text", "en", threshold=0.6)
+
+        assert result is not None
+        assert result["score"] == 0.7

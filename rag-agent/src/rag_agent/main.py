@@ -7,7 +7,7 @@ from .config import settings
 from .models import StoredQuery
 from .embeddings import embedding_generator
 from .clients import os_client, sqs_client
-from .services import RAGService
+from .services import rag_service
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ logging.basicConfig(
 )
 
 async def process_with_llm_and_save(request):
-    parsed = await RAGService.process(request)
+    parsed = await rag_service.process(request)
 
     stored = StoredQuery(
         request_id=request.request_id,
