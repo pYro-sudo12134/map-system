@@ -54,11 +54,9 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=
-      - JWT_SECRET=testSecretKeyForDevOnly12345678901234567890
+      - JWT_SECRET=a-string-secret-at-least-256-bits-long
       - LOGGING_LEVEL_BY_LOSIK=DEBUG
       - LOGGING_CAMEL_LEVEL=DEBUG
-      - CAMEL_SERVLET_MAPPING_ENABLED=true
-      - CAMEL_SERVLET_MAPPING_CONTEXT_PATH=/api/*
 
 volumes:
   localstack_data:

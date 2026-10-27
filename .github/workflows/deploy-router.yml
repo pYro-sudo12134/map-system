@@ -40,7 +40,9 @@ jobs:
 
       - name: Run Gradle tests
         working-directory: map-router
-        run: ./gradlew test --no-daemon
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: gradle test --no-daemon
 
   build-and-push:
     name: Build and push Docker image

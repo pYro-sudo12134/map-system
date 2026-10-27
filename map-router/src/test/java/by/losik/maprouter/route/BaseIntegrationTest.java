@@ -18,6 +18,8 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.sqs.SqsClient;
 
+import java.time.Duration;
+
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.SQS;
 
@@ -28,14 +30,17 @@ public abstract class BaseIntegrationTest {
 
     @Container
     protected static final LocalStackContainer localstack = new LocalStackContainer(
-            DockerImageName.parse("localstack/localstack:latest")
+            DockerImageName.parse("localstack/localstack:3.5")
     )
             .withServices(SQS, S3)
             .withEnv("AWS_ACCESS_KEY_ID", "test")
             .withEnv("AWS_SECRET_ACCESS_KEY", "test")
             .withEnv("AWS_DEFAULT_REGION", "us-east-1")
             .withEnv("SERVICES", "sqs,s3")
-            .waitingFor(Wait.forLogMessage(".*Ready\\.\n", 1));
+            .waitingFor(Wait.forHttp("/_localstack/health")
+                    .forPort(4566)
+                    .forStatusCode(200)
+                    .withStartupTimeout(Duration.ofMinutes(5)));
 
     @Container
     protected static final GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
