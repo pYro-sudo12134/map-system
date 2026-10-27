@@ -1,5 +1,5 @@
 FROM ghcr.io/openfaas/of-watchdog:0.9.11 AS watchdog
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -20,9 +20,7 @@ COPY --from=builder /app/handler /handler
 RUN chmod +x /handler /usr/bin/fwatchdog
 
 ENV fprocess="/handler"
-ENV mode="streaming"
-ENV upstream_url="http://127.0.0.1:8082"
-ENV cgi_headers="true"
+ENV mode="static"
 ENV read_timeout="60s"
 ENV write_timeout="60s"
 ENV exec_timeout="60s"
