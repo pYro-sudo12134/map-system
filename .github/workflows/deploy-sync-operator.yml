@@ -27,6 +27,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+          cache: true
+          cache-dependency-path: sync-operator/go.sum
 
       - name: Vet
         working-directory: sync-operator

@@ -48,7 +48,6 @@ class TestRAGService:
 
     @pytest.mark.asyncio
     async def test_process_passes_threshold_from_config(self, service, sample_rag_request):
-        """Порог similarity должен приходить из конфига, а не хардкодиться."""
         service.config.similarity_threshold = 0.7
         service.os_client.find_similar.return_value = None
         service.llm_client.process.return_value = QueryParams(

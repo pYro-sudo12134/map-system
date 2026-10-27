@@ -8,24 +8,24 @@ import (
 var (
 	QueueLength = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "sqs_queue_length",
-			Help: "Current number of messages in SQS queue",
+			Name: "sqs_map_queue_length",
+			Help: "Current number of messages in SQS_GO queue",
 		},
 		[]string{"queue_name"},
 	)
 
 	ScrapeErrors = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "sqs_scrape_errors_total",
-			Help: "Total number of errors while scraping SQS",
+			Name: "sqs_map_scrape_errors_total",
+			Help: "Total number of errors while scraping SQS_GO",
 		},
 		[]string{"queue_name"},
 	)
 
 	LastScrapeTimestamp = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "sqs_last_scrape_timestamp",
-			Help: "Unix timestamp of last successful SQS scrape",
+			Name: "sqs_map_last_scrape_timestamp",
+			Help: "Unix timestamp of last successful SQS_GO scrape",
 		},
 		[]string{"queue_name"},
 	)

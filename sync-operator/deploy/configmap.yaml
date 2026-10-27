@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: alertmanager-config
-  namespace: openfaas
+  namespace: monitoring
 data:
   alertmanager.yml: |
     receivers:
@@ -10,7 +10,7 @@ data:
         webhook_configs:
           - url: 'http://faasnetes.openfaas.svc.cluster.local:8080/system/scale-function/faas-s'
             send_resolved: false
-    
+
     route:
       receiver: 'scale-faas-s'
       group_by: ['alertname']
@@ -19,5 +19,8 @@ data:
       repeat_interval: 30s
       routes:
         - match:
-            alertname: 'SQSQueueTooLong'
+            alertname: SQSSyncQueueTooLong
+          receiver: 'scale-faas-s'
+        - match:
+            alertname: SQSSyncQueueVeryLong
           receiver: 'scale-faas-s'

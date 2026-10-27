@@ -30,7 +30,7 @@ type UserLocation struct {
 
 type Response struct {
 	RequestID string      `json:"request_id"`
-	Result    interface{} `json:"result"`
+	Result    interface{} `json:"result,omitempty"`
 	Error     string      `json:"error,omitempty"`
 }
 
@@ -42,21 +42,30 @@ var (
 	nodesIndex  string
 )
 
+func SetNeo4jDriver(d neo4j.DriverWithContext) { neo4jDriver = d }
+func SetOSClient(c *opensearch.Client)         { osClient = c }
+func SetSNSClient(c *sns.Client)               { snsClient = c }
+func SetSNSTopicARN(arn string)                { snsTopicARN = arn }
+func SetNodesIndex(idx string)                 { nodesIndex = idx }
+
 func init() {
 	dbURI := os.Getenv("NEO4J_URI")
 	dbUser := os.Getenv("NEO4J_USER")
 	dbPassword := os.Getenv("NEO4J_PASSWORD")
 
-	var err error
-	neo4jDriver, err = neo4j.NewDriverWithContext(dbURI, neo4j.BasicAuth(dbUser, dbPassword, ""))
-	if err != nil {
-		log.Fatalf("Failed to create Neo4j driver: %v", err)
+	if dbURI != "" {
+		var err error
+		neo4jDriver, err = neo4j.NewDriverWithContext(dbURI, neo4j.BasicAuth(dbUser, dbPassword, ""))
+		if err != nil {
+			log.Printf("Failed to create Neo4j driver: %v", err)
+		}
 	}
 
 	osURL := os.Getenv("OPENSEARCH_URL")
 	if osURL == "" {
 		log.Println("OPENSEARCH_URL not set, OpenSearch features disabled")
 	} else {
+		var err error
 		osClient, err = opensearch.NewClient(opensearch.Config{
 			Addresses: []string{osURL},
 			Username:  os.Getenv("OPENSEARCH_USER"),
@@ -76,18 +85,40 @@ func init() {
 	}
 
 	snsTopicARN = os.Getenv("SNS_TOPIC_ARN")
-	cfg, err := config.LoadDefaultConfig(context.Background())
-	if err != nil {
-		log.Fatalf("Failed to load AWS config: %v", err)
-	}
+	awsEndpoint := os.Getenv("AWS_ENDPOINT_URL")
 
-	if endpoint := os.Getenv("AWS_ENDPOINT_URL"); endpoint != "" {
-		cfg.BaseEndpoint = &endpoint
-	}
+	if awsEndpoint != "" || snsTopicARN != "" {
+		cfg, err := config.LoadDefaultConfig(context.Background())
+		if err != nil {
+			log.Printf("Failed to load AWS config: %v", err)
+		} else {
+			var opts []func(*sns.Options)
 
-	snsClient = sns.NewFromConfig(cfg)
+			if awsEndpoint != "" {
+				cfg.Credentials = aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
+					return aws.Credentials{
+						AccessKeyID:     "test",
+						SecretAccessKey: "test",
+						Source:          "static",
+					}, nil
+				})
+				if cfg.Region == "" {
+					cfg.Region = "us-east-1"
+				}
+				opts = append(opts, func(o *sns.Options) {
+					o.BaseEndpoint = aws.String(awsEndpoint)
+				})
+			}
+
+			snsClient = sns.NewFromConfig(cfg, opts...)
+		}
+	}
 }
 
+// Handle executes a single map request. On success it publishes the result
+// to the SNS topic and returns {"request_id":..., "result":...}. On error
+// it returns {"request_id":..., "error":"..."} and does NOT publish. The
+// caller (ConsumeOnce) leaves the SQS message for redelivery on failure.
 func Handle(ctx context.Context, req []byte) (string, error) {
 	var request Request
 	if err := json.Unmarshal(req, &request); err != nil {
@@ -99,22 +130,12 @@ func Handle(ctx context.Context, req []byte) (string, error) {
 
 	queryType, ok := request.ParsedQuery["query_type"].(string)
 	if !ok {
-		resp := Response{
-			RequestID: request.RequestID,
-			Error:     "missing query_type",
-		}
-		body, _ := json.Marshal(resp)
-		return string(body), nil
+		return failedResponse(request.RequestID, "missing query_type"), nil
 	}
 
 	params, ok := request.ParsedQuery["params"].(map[string]interface{})
 	if !ok {
-		resp := Response{
-			RequestID: request.RequestID,
-			Error:     "missing params",
-		}
-		body, _ := json.Marshal(resp)
-		return string(body), nil
+		return failedResponse(request.RequestID, "missing params"), nil
 	}
 
 	var result interface{}
@@ -128,28 +149,45 @@ func Handle(ctx context.Context, req []byte) (string, error) {
 			result, err = searchInOpenSearch(ctx, queryType, params, request.UserLocation)
 		}
 	case "shortest_path", "route_details", "filter_by":
-		result, err = executeNeo4jQuery(ctx, queryType, params)
+		if neo4jDriver == nil {
+			err = fmt.Errorf("Neo4j not available for %s queries", queryType)
+		} else {
+			result, err = executeNeo4jQuery(ctx, queryType, params)
+		}
 	default:
 		err = fmt.Errorf("unsupported query_type: %s", queryType)
 	}
 
 	if err != nil {
-		resp := Response{
-			RequestID: request.RequestID,
-			Error:     err.Error(),
-		}
-		body, _ := json.Marshal(resp)
-		return string(body), nil
+		log.Printf("Request %s failed: %v", request.RequestID, err)
+		return failedResponse(request.RequestID, err.Error()), nil
 	}
 
 	publishToSNS(ctx, request.RequestID, result)
 
-	resp := Response{
-		RequestID: request.RequestID,
+	return okResponse(request.RequestID, result), nil
+}
+
+func okResponse(requestID string, result interface{}) string {
+	b, err := json.Marshal(Response{
+		RequestID: requestID,
 		Result:    result,
+	})
+	if err != nil {
+		return `{"error":"marshal error"}`
 	}
-	body, _ := json.Marshal(resp)
-	return string(body), nil
+	return string(b)
+}
+
+func failedResponse(requestID, msg string) string {
+	b, err := json.Marshal(Response{
+		RequestID: requestID,
+		Error:     msg,
+	})
+	if err != nil {
+		return `{"error":"marshal error"}`
+	}
+	return string(b)
 }
 
 func searchInOpenSearch(ctx context.Context, queryType string, params map[string]interface{}, userLocation *UserLocation) (interface{}, error) {
@@ -186,9 +224,8 @@ func resolveLocationRef(ctx context.Context, locationRef string, userLocation *U
 			)
 			if err == nil {
 				defer func(Body io.ReadCloser) {
-					err := Body.Close()
-					if err != nil {
-						log.Printf("Error Occurred, %v", err)
+					if cerr := Body.Close(); cerr != nil {
+						log.Printf("Error closing body: %v", cerr)
 					}
 				}(res.Body)
 				var result map[string]interface{}
@@ -197,11 +234,16 @@ func resolveLocationRef(ctx context.Context, locationRef string, userLocation *U
 					if ok {
 						hitHits, ok := hits["hits"].([]interface{})
 						if ok && len(hitHits) > 0 {
-							source := hitHits[0].(map[string]interface{})["_source"].(map[string]interface{})
-							lat = source["lat"].(float64)
-							lon = source["lon"].(float64)
-							log.Printf("Found location '%s' -> (%f, %f)", locationRef, lat, lon)
-							return lat, lon, nil
+							if hit, ok := hitHits[0].(map[string]interface{}); ok {
+								if source, ok := hit["_source"].(map[string]interface{}); ok {
+									latF, ok1 := source["lat"].(float64)
+									lonF, ok2 := source["lon"].(float64)
+									if ok1 && ok2 {
+										log.Printf("Found location '%s' -> (%f, %f)", locationRef, latF, lonF)
+										return latF, lonF, nil
+									}
+								}
+							}
 						}
 					}
 				}
@@ -227,7 +269,7 @@ func proximitySearch(ctx context.Context, params map[string]interface{}, userLoc
 		}
 	}
 
-	if locationRef, ok := params["location_ref"].(string); ok && lat == 0 {
+	if locationRef, ok := params["location_ref"].(string); ok && lat == 0 && lon == 0 {
 		var err error
 		lat, lon, err = resolveLocationRef(ctx, locationRef, userLocation)
 		if err != nil {
@@ -268,9 +310,8 @@ func proximitySearch(ctx context.Context, params map[string]interface{}, userLoc
 		return nil, err
 	}
 	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Printf("Error Occurred, %v", err)
+		if cerr := Body.Close(); cerr != nil {
+			log.Printf("Error closing body: %v", cerr)
 		}
 	}(res.Body)
 
@@ -356,9 +397,8 @@ func nearestSearch(ctx context.Context, params map[string]interface{}, userLocat
 		return nil, err
 	}
 	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Printf("Error Occurred, %v", err)
+		if cerr := Body.Close(); cerr != nil {
+			log.Printf("Error closing body: %v", cerr)
 		}
 	}(res.Body)
 
@@ -372,12 +412,11 @@ func nearestSearch(ctx context.Context, params map[string]interface{}, userLocat
 
 func executeNeo4jQuery(ctx context.Context, queryType string, params map[string]interface{}) (interface{}, error) {
 	session := neo4jDriver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
-	defer func(session neo4j.SessionWithContext, ctx context.Context) {
-		err := session.Close(ctx)
-		if err != nil {
-			log.Printf("Error Occurred, %v", err)
+	defer func() {
+		if err := session.Close(ctx); err != nil {
+			log.Printf("Error closing session: %v", err)
 		}
-	}(session, ctx)
+	}()
 
 	var cypher string
 
@@ -436,14 +475,17 @@ func executeNeo4jQuery(ctx context.Context, queryType string, params map[string]
 
 func buildFilterQuery(params map[string]interface{}) string {
 	conditions := []string{}
-	if roadType, ok := params["road_type"].(string); ok {
-		conditions = append(conditions, fmt.Sprintf("r.road_type = '%s'", roadType))
+	if roadType, ok := params["road_type"].(string); ok && roadType != "" {
+		conditions = append(conditions, "r.road_type = $road_type")
+		params["road_type"] = roadType
 	}
 	if maxGradient, ok := params["max_gradient"].(float64); ok {
-		conditions = append(conditions, fmt.Sprintf("r.gradient <= %f", maxGradient))
+		conditions = append(conditions, "r.gradient <= $max_gradient")
+		params["max_gradient"] = maxGradient
 	}
 	if maxSpeed, ok := params["max_speed"].(float64); ok {
-		conditions = append(conditions, fmt.Sprintf("r.max_speed <= %f", maxSpeed))
+		conditions = append(conditions, "r.max_speed <= $max_speed")
+		params["max_speed"] = maxSpeed
 	}
 
 	whereClause := ""
@@ -460,6 +502,11 @@ func buildFilterQuery(params map[string]interface{}) string {
 }
 
 func publishToSNS(ctx context.Context, requestID string, result interface{}) {
+	if snsClient == nil || snsTopicARN == "" {
+		log.Printf("SNS not configured, skipping publish for request %s", requestID)
+		return
+	}
+
 	message := map[string]interface{}{
 		"request_id": requestID,
 		"result":     result,
@@ -467,16 +514,14 @@ func publishToSNS(ctx context.Context, requestID string, result interface{}) {
 
 	body, err := json.Marshal(message)
 	if err != nil {
-		log.Printf("Failed to marshal message: %v", err)
+		log.Printf("Failed to marshal SNS message: %v", err)
 		return
 	}
 
-	_, err = snsClient.Publish(ctx, &sns.PublishInput{
+	if _, err := snsClient.Publish(ctx, &sns.PublishInput{
 		TopicArn: aws.String(snsTopicARN),
 		Message:  aws.String(string(body)),
-	})
-
-	if err != nil {
+	}); err != nil {
 		log.Printf("Failed to publish to SNS: %v", err)
 	} else {
 		log.Printf("Published result to SNS for request: %s", requestID)

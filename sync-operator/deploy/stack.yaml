@@ -19,7 +19,8 @@ functions:
       OPENSEARCH_PASSWORD: admin
       OPENSEARCH_NODES_INDEX: nodes
       OPENSEARCH_EDGES_INDEX: edges
-      SQS_SYNC_RESULTS_URL: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_SYNC_RESULTS
+      SQS_SYNC_QUEUE_URL: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_SYNC
+      SQS_VISIBILITY_TIMEOUT: "300"
       AWS_ENDPOINT_URL: http://localstack.ism-mq.svc.cluster.local:4566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test

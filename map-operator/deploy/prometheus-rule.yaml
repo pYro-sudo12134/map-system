@@ -1,0 +1,28 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: map-operator-alerts
+  namespace: monitoring
+spec:
+  groups:
+    - name: map-operator.rules
+      rules:
+        - alert: SQSMapQueueTooLong
+          expr: sqs_map_queue_length{queue_name="SQS_GO"} > 10
+          for: 30s
+          labels:
+            severity: warning
+            component: map
+          annotations:
+            summary: "SQS_GO queue is too long ({{ $value }} messages)"
+            description: "Map FaaS consumer is falling behind (>10 messages for 30s)."
+
+        - alert: SQSMapQueueVeryLong
+          expr: sqs_map_queue_length{queue_name="SQS_GO"} > 50
+          for: 30s
+          labels:
+            severity: critical
+            component: map
+          annotations:
+            summary: "SQS_GO queue is very long ({{ $value }} messages)"
+            description: "Immediate scaling of faas-m required."

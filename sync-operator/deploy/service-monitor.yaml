@@ -1,12 +1,15 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: go-operator
-  namespace: ism-system
+  name: sync-operator
+  namespace: monitoring
 spec:
   selector:
     matchLabels:
-      app: go-operator
+      app: sync-operator
+  namespaceSelector:
+    matchNames:
+      - ism-system
   endpoints:
     - port: metrics
       interval: 10s

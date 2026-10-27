@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -14,7 +15,7 @@ type fakeReader struct {
 	calls  atomic.Int32
 }
 
-func (f *fakeReader) GetQueueLength() (int32, error) {
+func (f *fakeReader) GetQueueLength(_ context.Context) (int32, error) {
 	f.calls.Add(1)
 	return f.length, f.err
 }
@@ -57,7 +58,7 @@ func TestCollect_Success(t *testing.T) {
 	exporter := newFakeExporter()
 	col := NewCollector(Config{QueueName: "SQS_SYNC", CheckInterval: time.Hour}, reader, exporter)
 
-	col.collect()
+	col.collect(context.Background())
 
 	exporter.mu.Lock()
 	defer exporter.mu.Unlock()
@@ -81,7 +82,7 @@ func TestCollect_ReaderError(t *testing.T) {
 	exporter := newFakeExporter()
 	col := NewCollector(Config{QueueName: "SQS_SYNC", CheckInterval: time.Hour}, reader, exporter)
 
-	col.collect()
+	col.collect(context.Background())
 
 	exporter.mu.Lock()
 	defer exporter.mu.Unlock()
@@ -102,7 +103,7 @@ func TestCollect_ZeroLength(t *testing.T) {
 	exporter := newFakeExporter()
 	col := NewCollector(Config{QueueName: "TEST", CheckInterval: time.Hour}, reader, exporter)
 
-	col.collect()
+	col.collect(context.Background())
 
 	exporter.mu.Lock()
 	defer exporter.mu.Unlock()
@@ -117,7 +118,10 @@ func TestStart_ImmediateCollectAndStop(t *testing.T) {
 	exporter := newFakeExporter()
 	col := NewCollector(Config{QueueName: "SQS_SYNC", CheckInterval: time.Hour}, reader, exporter)
 
-	col.Start()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	col.Start(ctx)
 
 	exporter.mu.Lock()
 	got := exporter.lengths["SQS_SYNC"]
@@ -127,6 +131,7 @@ func TestStart_ImmediateCollectAndStop(t *testing.T) {
 	}
 
 	col.Stop()
+	col.Wait()
 }
 
 func TestStart_TickerPolling(t *testing.T) {
@@ -134,28 +139,49 @@ func TestStart_TickerPolling(t *testing.T) {
 	exporter := newFakeExporter()
 	col := NewCollector(Config{QueueName: "SQS_SYNC", CheckInterval: 5 * time.Millisecond}, reader, exporter)
 
-	col.Start()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	col.Start(ctx)
 	time.Sleep(50 * time.Millisecond)
 	col.Stop()
+	col.Wait()
 
-	calls := int(reader.calls.Load())
-	if calls < 2 {
+	if calls := int(reader.calls.Load()); calls < 2 {
 		t.Fatalf("expected at least 2 collects (1 immediate + polling), got %d", calls)
 	}
 }
 
-func TestStop_TwicePanics(t *testing.T) {
+func TestStop_Idempotent(t *testing.T) {
 	reader := &fakeReader{length: 0}
 	exporter := newFakeExporter()
 	col := NewCollector(Config{QueueName: "Q", CheckInterval: time.Hour}, reader, exporter)
 
-	col.Start()
-	col.Stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic on double stop")
-		}
-	}()
+	col.Start(ctx)
+
 	col.Stop()
+	col.Stop()
+	col.Stop()
+	col.Wait()
+}
+
+func TestStart_ContextCancelStopsPolling(t *testing.T) {
+	reader := &fakeReader{length: 0}
+	exporter := newFakeExporter()
+	col := NewCollector(Config{QueueName: "Q", CheckInterval: time.Hour}, reader, exporter)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	col.Start(ctx)
+
+	before := reader.calls.Load()
+	cancel()
+	col.Wait()
+	after := reader.calls.Load()
+
+	if after > before+1 {
+		t.Fatalf("expected no extra collects after context cancel, before=%d after=%d", before, after)
+	}
 }

@@ -1,12 +1,14 @@
 package collector
 
 import (
+	"context"
 	"log"
+	"sync"
 	"time"
 )
 
 type QueueReader interface {
-	GetQueueLength() (int32, error)
+	GetQueueLength(ctx context.Context) (int32, error)
 }
 
 type MetricsExporter interface {
@@ -24,38 +26,41 @@ type Collector struct {
 	config   Config
 	reader   QueueReader
 	metrics  MetricsExporter
+	stopOnce sync.Once
 	stopChan chan struct{}
+	doneChan chan struct{}
 }
 
-func NewCollector(
-	config Config,
-	reader QueueReader,
-	metrics MetricsExporter,
-) *Collector {
+func NewCollector(config Config, reader QueueReader, metrics MetricsExporter) *Collector {
 	return &Collector{
 		config:   config,
 		reader:   reader,
 		metrics:  metrics,
 		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
 	}
 }
 
-func (c *Collector) Start() {
+func (c *Collector) Start(ctx context.Context) {
 	log.Printf("Starting collector for queue: %s (interval: %v)",
 		c.config.QueueName, c.config.CheckInterval)
 
-	ticker := time.NewTicker(c.config.CheckInterval)
-
-	c.collect()
+	c.collect(ctx)
 
 	go func() {
+		defer close(c.doneChan)
+		ticker := time.NewTicker(c.config.CheckInterval)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ticker.C:
-				c.collect()
+				c.collect(ctx)
 			case <-c.stopChan:
-				ticker.Stop()
 				log.Printf("Collector stopped for queue: %s", c.config.QueueName)
+				return
+			case <-ctx.Done():
+				log.Printf("Collector context cancelled for queue: %s", c.config.QueueName)
 				return
 			}
 		}
@@ -63,15 +68,22 @@ func (c *Collector) Start() {
 }
 
 func (c *Collector) Stop() {
-	close(c.stopChan)
+	c.stopOnce.Do(func() { close(c.stopChan) })
 }
 
-func (c *Collector) collect() {
-	length, err := c.reader.GetQueueLength()
+func (c *Collector) Wait() {
+	select {
+	case <-c.doneChan:
+	case <-time.After(5 * time.Second):
+	}
+}
+
+func (c *Collector) collect(ctx context.Context) {
+	length, err := c.reader.GetQueueLength(ctx)
 
 	if err != nil {
 		c.metrics.IncScrapeErrors(c.config.QueueName)
-		log.Printf("Failed to collect queue length: %v", err)
+		log.Printf("Failed to collect queue length for %s: %v", c.config.QueueName, err)
 		return
 	}
 

@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -14,22 +16,6 @@ import (
 	"github.com/pYro-sudo12134/map-operator/map-system/internal/collector"
 	"github.com/pYro-sudo12134/map-operator/map-system/internal/metrics"
 )
-
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
-		if d, err := time.ParseDuration(value); err == nil {
-			return d
-		}
-	}
-	return defaultValue
-}
 
 type metricsExporter struct{}
 
@@ -46,48 +32,77 @@ func (m *metricsExporter) SetLastScrapeTimestamp(queueName string, timestamp flo
 }
 
 func main() {
-	log.Println("Starting Go Operator for ISM (Metrics Exporter)")
+	log.Println("Starting Map Operator for ISM (Metrics Exporter)")
 
-	queueURL := getEnv("SQS_GO_URL", "http://localstack:4566/000000000000/SQS_GO")
+	queueURL := getEnv("SQS_GO_URL", "")
 	queueName := getEnv("QUEUE_NAME", "SQS_GO")
 	checkInterval := getEnvDuration("CHECK_INTERVAL", 10*time.Second)
 	metricsPort := getEnv("METRICS_PORT", "9090")
+	awsEndpoint := os.Getenv("AWS_ENDPOINT_URL")
 
-	ctx := context.Background()
-	awsCfg, err := config.LoadDefaultConfig(ctx)
+	if queueURL == "" {
+		log.Fatal("SQS_GO_URL is required")
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	awsCfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		log.Fatalf("Failed to load AWS config: %v", err)
 	}
 
-	if endpoint := os.Getenv("AWS_ENDPOINT_URL"); endpoint != "" {
-		awsCfg.BaseEndpoint = &endpoint
-		log.Printf("Using custom AWS endpoint: %s", endpoint)
-	}
-
-	sqsReader := aws.NewSQSReader(awsCfg, queueURL)
-
-	collectorConfig := collector.Config{
-		QueueName:     queueName,
-		CheckInterval: checkInterval,
-	}
-
-	exporter := &metricsExporter{}
+	sqsReader := aws.NewSQSReader(awsCfg, queueURL, awsEndpoint)
 
 	col := collector.NewCollector(
-		collectorConfig,
+		collector.Config{
+			QueueName:     queueName,
+			CheckInterval: checkInterval,
+		},
 		sqsReader,
-		exporter,
+		&metricsExporter{},
 	)
+	col.Start(ctx)
 
+	srv := &http.Server{
+		Addr:    ":" + metricsPort,
+		Handler: promhttp.Handler(),
+	}
 	go func() {
-		http.Handle("/metrics", promhttp.Handler())
 		log.Printf("Metrics endpoint listening on :%s", metricsPort)
-		if err := http.ListenAndServe(":"+metricsPort, nil); err != nil {
-			log.Fatalf("Failed to start metrics server: %v", err)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Metrics server error: %v", err)
 		}
 	}()
 
-	col.Start()
+	<-ctx.Done()
+	log.Println("Shutdown signal received, stopping collector")
 
-	select {}
+	col.Stop()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Metrics server shutdown error: %v", err)
+	}
+
+	col.Wait()
+	log.Println("Shutdown complete")
+}
+
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if d, err := time.ParseDuration(value); err == nil {
+			return d
+		}
+		log.Printf("Invalid duration %q for %s, using default %v", value, key, defaultValue)
+	}
+	return defaultValue
 }
