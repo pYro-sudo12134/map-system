@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: Map Router API
+  version: 0.0.1
+  description: Route processing and result retrieval
+servers:
+  - url: http://localhost:8091
+paths:
+  /api/v1/route:
+    post:
+      summary: Submit route processing request
+      operationId: processRoute
+      tags: [Map Router]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string, example: "как доехать до центра" }
+                voice: { type: string, format: base64 }
+                language: { type: string, default: ru }
+              description: Exactly one of 'text' or 'voice' must be provided
+      responses:
+        '202': { description: Accepted }
+        '400': { description: Bad request }
+        '401': { description: Unauthorized }
+        '429': { description: Rate limit exceeded }
+        '503': { description: Service unavailable }
+  /api/v1/result/{requestId}:
+    get:
+      summary: Get route processing result
+      operationId: getResult
+      tags: [Map Router]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Result }
+        '404': { description: Not found }
+  /api/v1/admin/sync/full:
+    post:
+      summary: Trigger full synchronization
+      operationId: syncFull
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        '202': { description: Accepted }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+  /api/v1/admin/sync/nodes:
+    post:
+      summary: Trigger nodes synchronization
+      operationId: syncNodes
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        '202': { description: Accepted }
+  /api/v1/admin/sync/edges:
+    post:
+      summary: Trigger edges synchronization
+      operationId: syncEdges
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        '202': { description: Accepted }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

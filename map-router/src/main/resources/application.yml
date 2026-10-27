@@ -111,10 +111,18 @@ resilience4j:
         minimum-number-of-calls: 5
         wait-duration-in-open-state: 15000
 
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    path: /swagger-ui.html
+    url: /openapi.yaml
+    disable-swagger-default-url: true
 
 camel:
   servlet:
     mapping:
+      enabled: true
       context-path: /api/*
   component:
     aws2-sqs:

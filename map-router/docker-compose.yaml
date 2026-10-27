@@ -57,6 +57,8 @@ services:
       - JWT_SECRET=testSecretKeyForDevOnly12345678901234567890
       - LOGGING_LEVEL_BY_LOSIK=DEBUG
       - LOGGING_CAMEL_LEVEL=DEBUG
+      - CAMEL_SERVLET_MAPPING_ENABLED=true
+      - CAMEL_SERVLET_MAPPING_CONTEXT_PATH=/api/*
 
 volumes:
   localstack_data:
