@@ -48,7 +48,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: operator
-          image: pyrodocker1/sync-operator:0.1
+          image: pyrodocker1/sync-operator:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9091

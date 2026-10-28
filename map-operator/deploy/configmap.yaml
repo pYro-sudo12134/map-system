@@ -6,31 +6,27 @@ metadata:
 data:
   alertmanager.yml: |
     receivers:
-      - name: 'scale-faas-m'
-        webhook_configs:
-          - url: 'http://faasnetes.openfaas.svc.cluster.local:8080/system/scale-function/faas-m'
-            send_resolved: false
       - name: 'scale-faas-s'
         webhook_configs:
-          - url: 'http://faasnetes.openfaas.svc.cluster.local:8080/system/scale-function/faas-s'
+          - url: 'http://gateway.openfaas.svc.cluster.local:8080/system/scale-function/faas-s'
             send_resolved: false
-
+      - name: 'scale-faas-m'
+        webhook_configs:
+          - url: 'http://gateway.openfaas.svc.cluster.local:8080/system/scale-function/faas-m'
+            send_resolved: false
+    
     route:
-      receiver: 'scale-faas-m'
+      receiver: 'scale-faas-s'
       group_by: ['alertname']
       group_wait: 10s
       group_interval: 5s
       repeat_interval: 30s
       routes:
-        - match:
-            alertname: SQSMapQueueTooLong
-          receiver: 'scale-faas-m'
-        - match:
-            alertname: SQSMapQueueVeryLong
-          receiver: 'scale-faas-m'
-        - match:
-            alertname: SQSSyncQueueTooLong
+        - matchers: ['alertname="SQSSyncQueueTooLong"']
           receiver: 'scale-faas-s'
-        - match:
-            alertname: SQSSyncQueueVeryLong
+        - matchers: ['alertname="SQSSyncQueueVeryLong"']
           receiver: 'scale-faas-s'
+        - matchers: ['alertname="SQSMapQueueTooLong"']
+          receiver: 'scale-faas-m'
+        - matchers: ['alertname="SQSMapQueueVeryLong"']
+          receiver: 'scale-faas-m'

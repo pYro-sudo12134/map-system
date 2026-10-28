@@ -1,0 +1,174 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ism_auth
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - auth_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ism_auth"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      AUTH_DB: ism_auth
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      AUTH_SERVICE_SCHEMA: public
+      JWT_SECRET: a-string-secret-at-least-256-bits-long
+      JWT_EXPIRATION: 86400000
+      JWT_REFRESH_EXPIRATION: 604800000
+      LOGGING_LEVEL_AUTH: INFO
+      SPRING_SECURITY_LEVEL: INFO
+    ports:
+      - "8081:8081"
+
+  localstack:
+    image: localstack/localstack:4.12
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3,sqs,sns,transcribe,kms,sts,iam
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./localstack:/etc/localstack/init/ready.d
+    healthcheck:
+      test: ["CMD", "awslocal", "sqs", "list-queues"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5.21-community
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/testpass
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  rag-agent:
+    build:
+      context: ./rag-agent
+      dockerfile: Dockerfile
+    depends_on:
+      opensearch:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    environment:
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      OLLAMA_URL: http://ollama:11434
+      OPENSEARCH_URL: http://opensearch:9200
+      OPENSEARCH_INDEX: rag_queries
+      QUEUE_RAG_URL: http://localstack:4566/000000000000/SQS_RAG
+      QUEUE_GO_URL: http://localstack:4566/000000000000/SQS_GO
+      DLQ_URL: http://localstack:4566/000000000000/DLQ
+      SIMILARITY_THRESHOLD: "0.85"
+    restart: unless-stopped
+
+  java-router:
+    build:
+      context: ./map-router
+      dockerfile: Dockerfile
+    depends_on:
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8091:8082"
+    environment:
+      AWS_ACCESS_KEY: test
+      AWS_SECRET_KEY: test
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      SQS_RAG_NAME: SQS_RAG
+      SQS_RESULTS_NAME: SQS_RESULTS
+      SQS_SYNC_NAME: SQS_SYNC
+      AWS_S3_BUCKET: voice-records
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      JWT_SECRET: a-string-secret-at-least-256-bits-long
+      LOGGING_LEVEL_BY_LOSIK: DEBUG
+      LOGGING_CAMEL_LEVEL: DEBUG
+
+volumes:
+  auth_pg_data:
+  localstack_data:
+  neo4j_data:
+  neo4j_logs:
+  opensearch_data:
+  ollama_data:

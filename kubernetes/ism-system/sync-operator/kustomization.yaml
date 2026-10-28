@@ -9,6 +9,7 @@ resources:
   - hpa.yaml
   - pdb.yaml
   - service.yaml
+  - secret.yaml
 
 generatorOptions:
   disableNameSuffixHash: true

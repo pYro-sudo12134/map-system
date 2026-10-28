@@ -52,7 +52,7 @@ class JwtServiceTest {
 
     @Test
     void shouldRecognizeAdmin() {
-        String token = generateToken("admin123", "ADMIN", System.currentTimeMillis() + 3600000);
+        String token = generateToken("admin123", "ROLE_ADMIN", System.currentTimeMillis() + 3600000);
         assertTrue(jwtService.isAdmin(token));
     }
 

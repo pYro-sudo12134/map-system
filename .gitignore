@@ -68,6 +68,8 @@ map-operator/deploy/build
 handler
 *.conf
 *.env
+*.tar
+*.zip
 
 !helm/mq/localstack
 !kubernetes/mq/localstack

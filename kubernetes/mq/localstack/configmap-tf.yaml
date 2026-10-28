@@ -586,7 +586,7 @@ data:
 
   terraform.tfvars: |
     aws_region    = "us-east-1"
-    endpoint_url  = "http://localstack.ism-mq.svc.cluster.local:4566"
+    endpoint_url  = "http://host.docker.internal:4566"
     environment   = "dev"
     
     common_tags = {

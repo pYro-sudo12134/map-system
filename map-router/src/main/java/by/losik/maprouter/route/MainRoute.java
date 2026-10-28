@@ -3,6 +3,7 @@ package by.losik.maprouter.route;
 import by.losik.maprouter.exception.UnauthorizedException;
 import by.losik.maprouter.processor.JwtAuthProcessor;
 import by.losik.maprouter.service.RedisService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.swagger.v3.oas.annotations.Operation;
@@ -175,7 +176,13 @@ public class MainRoute extends RouteBuilder {
                     sqsMessage.put("user_id", userId);
                     sqsMessage.put("language", language);
                     sqsMessage.put("error", "s3_upload_unavailable");
-                    exchange.getMessage().setBody(sqsMessage);
+                    try {
+                        exchange.getMessage().setBody(objectMapper.writeValueAsString(sqsMessage));
+                    } catch (JsonProcessingException e) {
+                        log.error("Failed to serialize fallback SQS message", e);
+                        exchange.getMessage().setBody("{\"error\":\"s3_upload_unavailable\"}");
+                    }
+                    exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
                 })
                 .end()
 
@@ -209,7 +216,13 @@ public class MainRoute extends RouteBuilder {
                     sqsMessage.put("user_id", userId);
                     sqsMessage.put("language", language);
                     sqsMessage.put("error", "transcription_unavailable");
-                    exchange.getMessage().setBody(sqsMessage);
+                    try {
+                        exchange.getMessage().setBody(objectMapper.writeValueAsString(sqsMessage));
+                    } catch (JsonProcessingException e) {
+                        log.error("Failed to serialize fallback SQS message", e);
+                        exchange.getMessage().setBody("{\"error\":\"s3_upload_unavailable\"}");
+                    }
+                    exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
                 })
                 .endChoice()
                 .otherwise()
@@ -585,7 +598,8 @@ public class MainRoute extends RouteBuilder {
                 sqsMessage.put("user_location", location);
             });
 
-            exchange.getMessage().setBody(sqsMessage);
+            exchange.getMessage().setBody(objectMapper.writeValueAsString(sqsMessage));
+            exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
         } else {
             throw new IllegalArgumentException("Exactly one of 'text' or 'voice' must be provided, not both or none");
         }
@@ -653,7 +667,14 @@ public class MainRoute extends RouteBuilder {
                 sqsMessage.put("user_location", location);
             });
 
-            exchange.getMessage().setBody(sqsMessage);
+            try {
+                exchange.getMessage().setBody(objectMapper.writeValueAsString(sqsMessage));
+            } catch (JsonProcessingException e) {
+                log.error("Failed to serialize SQS message", e);
+                throw new RuntimeException("Failed to serialize SQS message", e);
+            }
+            exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
+
         }
     }
 

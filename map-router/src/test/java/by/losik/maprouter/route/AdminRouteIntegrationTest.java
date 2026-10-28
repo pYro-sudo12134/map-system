@@ -54,7 +54,7 @@ class AdminRouteIntegrationTest extends BaseIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        adminJwt = generateToken("admin123", "ADMIN");
+        adminJwt = generateToken("admin123", "ROLE_ADMIN");
         userJwt = generateToken("user123", "USER");
 
         try (SqsClient sqsClient = createSqsClient()) {

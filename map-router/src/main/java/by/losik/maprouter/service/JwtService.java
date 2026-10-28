@@ -54,7 +54,7 @@ public class JwtService {
     public boolean isAdmin(String token) {
         if (token == null || token.isEmpty() || isExpired(token)) return false;
         try {
-            return "ADMIN".equals(extractRole(token));
+            return "ROLE_ADMIN".equals(extractRole(token));
         } catch (Exception e) {
             return false;
         }

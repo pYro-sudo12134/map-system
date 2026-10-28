@@ -10,5 +10,5 @@ spec:
     app: sync-operator
   ports:
     - name: metrics
-      port: 9090
-      targetPort: 9090
+      port: 9091
+      targetPort: 9091

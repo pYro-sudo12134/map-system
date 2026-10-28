@@ -1,0 +1,33 @@
+grafana:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: 'null'
+      group_by: ['alertname']
+      group_wait: 10s
+      group_interval: 5s
+      repeat_interval: 30s
+      routes:
+        - matchers: ['alertname="SQSSyncQueueTooLong"']
+          receiver: 'scale-adapter'
+        - matchers: ['alertname="SQSSyncQueueVeryLong"']
+          receiver: 'scale-adapter'
+        - matchers: ['alertname="SQSMapQueueTooLong"']
+          receiver: 'scale-adapter'
+        - matchers: ['alertname="SQSMapQueueVeryLong"']
+          receiver: 'scale-adapter'
+    receivers:
+      - name: 'null'
+      - name: 'scale-adapter'
+        webhook_configs:
+          - url: 'http://scale-adapter.ism-system.svc.cluster.local:8080/scale'
+            send_resolved: true

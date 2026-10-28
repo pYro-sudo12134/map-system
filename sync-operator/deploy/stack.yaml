@@ -8,28 +8,29 @@ functions:
   faas-s:
     lang: dockerfile
     handler: ../../sync-faas
-    image: pyrodocker1/faas-s:0.1
-    serviceAccount: sync-operator-sa
+    image: pyrodocker1/faas-s:latest
+#    serviceAccount: sync-operator-sa
     environment:
-      NEO4J_URI: bolt://neo4j.database.svc.cluster.local:7687
+      NEO4J_URI: bolt://host.docker.internal:7687
       NEO4J_USER: neo4j
-      NEO4J_PASSWORD: test1234
-      OPENSEARCH_URL: http://opensearch.database.svc.cluster.local:9200
+      NEO4J_PASSWORD: testpass
+      OPENSEARCH_URL: http://host.docker.internal:9200
       OPENSEARCH_USER: admin
       OPENSEARCH_PASSWORD: admin
       OPENSEARCH_NODES_INDEX: nodes
       OPENSEARCH_EDGES_INDEX: edges
-      SQS_SYNC_QUEUE_URL: http://localstack.ism-mq.svc.cluster.local:4566/000000000000/SQS_SYNC
+      SQS_SYNC_QUEUE_URL: http://host.docker.internal:4566/000000000000/SQS_SYNC
       SQS_VISIBILITY_TIMEOUT: "300"
-      AWS_ENDPOINT_URL: http://localstack.ism-mq.svc.cluster.local:4566
+      AWS_ENDPOINT_URL: http://host.docker.internal:4566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
     labels:
       com.openfaas.scale.min: 2
-      com.openfaas.scale.max: 20
+      com.openfaas.scale.max: 5
       faas_function: faas-s
     annotations:
-      prometheus.io.scrape: "true"
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9091"
     limits:
       memory: 256Mi
     requests:

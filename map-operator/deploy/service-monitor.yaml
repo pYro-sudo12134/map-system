@@ -44,3 +44,6 @@ spec:
 #  --create-namespace \
 #  --set adminPassword=admin \
 #  --set service.type=ClusterIP
+#
+#  helm upgrade prometheus prometheus-community/kube-prometheus-stack \
+#  --namespace monitoring -f am-values.yaml
