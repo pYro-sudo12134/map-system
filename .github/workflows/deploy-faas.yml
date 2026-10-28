@@ -6,13 +6,11 @@ on:
     paths:
       - 'map-faas/**'
       - 'sync-faas/**'
-      - '.github/workflows/faas-tests.yml'
   pull_request:
     branches: [ master ]
     paths:
       - 'map-faas/**'
       - 'sync-faas/**'
-      - '.github/workflows/faas-tests.yml'
   workflow_dispatch:
 
 env:
