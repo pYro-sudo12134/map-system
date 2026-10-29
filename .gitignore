@@ -38,7 +38,6 @@ gradlew
 ### VS Code ###
 .vscode/
 rag-agent/venv
-localstack
 
 
 # Python

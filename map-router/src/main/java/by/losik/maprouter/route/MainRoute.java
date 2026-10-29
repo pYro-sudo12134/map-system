@@ -1,7 +1,10 @@
 package by.losik.maprouter.route;
 
+import by.losik.maprouter.exception.ForbiddenException;
 import by.losik.maprouter.exception.UnauthorizedException;
 import by.losik.maprouter.processor.JwtAuthProcessor;
+import by.losik.maprouter.processor.PollTranscriptionProcessor;
+import by.losik.maprouter.processor.PrepareTranscriptionPollProcessor;
 import by.losik.maprouter.service.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,6 +28,9 @@ import org.apache.camel.util.json.JsonObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.util.Base64;
 import java.util.HashMap;
@@ -42,6 +48,9 @@ public class MainRoute extends RouteBuilder {
     private final JwtAuthProcessor jwtAuthProcessor;
     private final RedisService redisService;
     private final ObjectMapper objectMapper;
+    private final PollTranscriptionProcessor pollTranscriptionProcessor;
+    private final PrepareTranscriptionPollProcessor prepareTranscriptionPollProcessor;
+    private final S3Client s3Client;
 
     @Value("${aws.s3.bucket:voice-records}")
     private String bucketName;
@@ -88,9 +97,16 @@ public class MainRoute extends RouteBuilder {
     @Value("${resilience4j.circuitbreaker.instances.s3-upload.wait-duration-in-open-state:15000}")
     private int s3WaitDurationInOpenState;
 
+    @Value("${transcribe.poll.interval-ms:2000}")
+    private long transcribePollIntervalMs;
+
+    @Value("${transcribe.poll.max-attempts:60}")
+    private int transcribePollMaxAttempts;
+
     private static final String REQUEST_ID = "requestId";
     private static final String USER_ID = "userId";
     private static final String LANGUAGE = "language";
+    private static final String TRANSCRIBE_LANGUAGE = "transcribeLanguage";
 
     @Override
     public void configure() {
@@ -100,7 +116,20 @@ public class MainRoute extends RouteBuilder {
                     Exception e = exchange.getProperty(Exchange.EXCEPTION_CAUGHT, Exception.class);
                     log.warn("Unauthorized: {}", e.getMessage());
                     exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 401);
-                    exchange.getMessage().setBody(new JsonObject().put("error", e.getMessage()));
+                    exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
+                    exchange.getMessage().setBody(
+                            objectMapper.writeValueAsString(Map.of("error", e.getMessage())));
+                });
+
+        onException(ForbiddenException.class)
+                .handled(true)
+                .process(exchange -> {
+                    Exception e = exchange.getProperty(Exchange.EXCEPTION_CAUGHT, Exception.class);
+                    log.warn("Forbidden: {}", e.getMessage());
+                    exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 403);
+                    exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
+                    exchange.getMessage().setBody(
+                            objectMapper.writeValueAsString(Map.of("error", e.getMessage())));
                 });
 
         onException(IllegalArgumentException.class)
@@ -109,7 +138,9 @@ public class MainRoute extends RouteBuilder {
                     Exception e = exchange.getProperty(Exchange.EXCEPTION_CAUGHT, Exception.class);
                     log.warn("Bad request: {}", e.getMessage());
                     exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 400);
-                    exchange.getMessage().setBody(new JsonObject().put("error", e.getMessage()));
+                    exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
+                    exchange.getMessage().setBody(
+                            objectMapper.writeValueAsString(Map.of("error", e.getMessage())));
                 });
 
         onException(CallNotPermittedException.class)
@@ -118,8 +149,9 @@ public class MainRoute extends RouteBuilder {
                     log.error("Circuit breaker is OPEN - request rejected");
                     exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 503);
                     exchange.getMessage().setHeader("Retry-After", 30);
-                    exchange.getMessage().setBody(new JsonObject()
-                            .put("error", "Service temporarily unavailable"));
+                    exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
+                    exchange.getMessage().setBody(
+                            objectMapper.writeValueAsString(Map.of("error", "Internal server error")));
                 });
 
         onException(Exception.class)
@@ -128,24 +160,26 @@ public class MainRoute extends RouteBuilder {
                     Exception e = exchange.getProperty(Exchange.EXCEPTION_CAUGHT, Exception.class);
                     log.error("Internal error: {}", e.getMessage(), e);
                     exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 500);
-                    exchange.getMessage().setBody(new JsonObject().put("error", "Internal server error"));
+                    exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
+                    exchange.getMessage().setBody(
+                            objectMapper.writeValueAsString(Map.of("error", "Internal server error")));
                 });
 
         from("servlet:/v1/result/{requestId}?httpMethodRestrict=GET")
                 .routeId("get-result")
                 .throttle(getResultMaxRequests)
                 .timePeriodMillis(getResultTimePeriodMs)
-                .asyncDelayed()
+                .process(jwtAuthProcessor)
                 .process(this::processGetResult);
 
         from("servlet:/v1/route?httpMethodRestrict=POST")
                 .routeId("user-route")
                 .throttle(globalMaxRequests)
                 .timePeriodMillis(globalTimePeriodMs)
-                .asyncDelayed()
                 .rejectExecution(true)
                 .process(jwtAuthProcessor)
                 .process(this::prepareRequest)
+
                 .choice()
                 .when(exchange -> exchange.getProperty("skipTranscribe") == null)
                 .circuitBreaker()
@@ -185,7 +219,11 @@ public class MainRoute extends RouteBuilder {
                     exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
                 })
                 .end()
+                .end()
+                .end()
 
+                .choice()
+                .when(exchange -> exchange.getProperty("skipTranscribe") == null)
                 .circuitBreaker()
                 .resilience4jConfiguration()
                 .failureRateThreshold(transcribeFailureRateThreshold)
@@ -197,9 +235,7 @@ public class MainRoute extends RouteBuilder {
                 .timeoutDuration(60000)
                 .end()
                 .process(this::startTranscriptionJob)
-                .to("aws2-transcribe://startTranscriptionJob")
-                .to("aws2-transcribe://getTranscriptionJob")
-                .process(this::sendToSqs)
+                .to("aws2-transcribe://startTranscriptionJob?operation=startTranscriptionJob")
                 .onFallback()
                 .process(exchange -> {
                     String requestId = exchange.getProperty(REQUEST_ID, String.class);
@@ -220,18 +256,42 @@ public class MainRoute extends RouteBuilder {
                         exchange.getMessage().setBody(objectMapper.writeValueAsString(sqsMessage));
                     } catch (JsonProcessingException e) {
                         log.error("Failed to serialize fallback SQS message", e);
-                        exchange.getMessage().setBody("{\"error\":\"s3_upload_unavailable\"}");
+                        exchange.getMessage().setBody("{\"error\":\"transcription_unavailable\"}");
                     }
                     exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
                 })
-                .endChoice()
-                .otherwise()
-                .process(this::sendToSqs)
                 .end()
+                .end()
+                .end()
+
+                .choice()
+                .when(exchange -> exchange.getProperty("skipTranscribe") == null)
+                .setProperty("transcriptionPending", constant(true))
+                .setProperty("pollAttempt", constant(0))
+                .loopDoWhile(exchange ->
+                        Boolean.TRUE.equals(exchange.getProperty("transcriptionPending", Boolean.class))
+                                && exchange.getProperty("pollAttempt", Integer.class) < transcribePollMaxAttempts)
+                .process(exchange -> {
+                    Integer attempt = exchange.getProperty("pollAttempt", Integer.class);
+                    exchange.setProperty("pollAttempt", attempt + 1);
+                })
+                .delay(transcribePollIntervalMs)
+                .process(prepareTranscriptionPollProcessor)
+                .to("aws2-transcribe://getTranscriptionJob?operation=getTranscriptionJob")
+                .process(pollTranscriptionProcessor)
+                .end()
+                .choice()
+                .when(exchange -> Boolean.TRUE.equals(exchange.getProperty("transcriptionPending", Boolean.class)))
+                .throwException(new IllegalStateException(
+                        "Transcription timed out after " + transcribePollMaxAttempts + " attempts"))
+                .end()
+                .end()
+                .end()
+
+                .process(this::sendToSqs)
                 .to("aws2-sqs:%s".formatted(ragQueueName))
                 .process(this::sendResponse)
-                .marshal().json()
-                .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(202));
+                .marshal().json();
     }
 
     @Operation(
@@ -250,22 +310,10 @@ public class MainRoute extends RouteBuilder {
                             schema = @Schema(
                                     type = "object",
                                     properties = {
-                                            @StringToClassMapItem(
-                                                    key = "request_id",
-                                                    value = String.class
-                                            ),
-                                            @StringToClassMapItem(
-                                                    key = "status",
-                                                    value = String.class
-                                            ),
-                                            @StringToClassMapItem(
-                                                    key = "result",
-                                                    value = Object.class
-                                            ),
-                                            @StringToClassMapItem(
-                                                    key = "error",
-                                                    value = String.class
-                                            )
+                                            @StringToClassMapItem(key = "request_id", value = String.class),
+                                            @StringToClassMapItem(key = "status", value = String.class),
+                                            @StringToClassMapItem(key = "result", value = Object.class),
+                                            @StringToClassMapItem(key = "error", value = String.class)
                                     }
                             ),
                             examples = {
@@ -292,10 +340,7 @@ public class MainRoute extends RouteBuilder {
                             schema = @Schema(
                                     type = "object",
                                     properties = {
-                                            @StringToClassMapItem(
-                                                    key = "error",
-                                                    value = String.class
-                                            )
+                                            @StringToClassMapItem(key = "error", value = String.class)
                                     }
                             ),
                             examples = @ExampleObject(value = "{\"error\":\"Request not found\"}")
@@ -314,10 +359,7 @@ public class MainRoute extends RouteBuilder {
                             schema = @Schema(
                                     type = "object",
                                     properties = {
-                                            @StringToClassMapItem(
-                                                    key = "error",
-                                                    value = String.class
-                                            )
+                                            @StringToClassMapItem(key = "error", value = String.class)
                                     }
                             ),
                             examples = @ExampleObject(value = "{\"error\":\"Internal server error\"}")
@@ -325,43 +367,58 @@ public class MainRoute extends RouteBuilder {
             )
     })
     private void processGetResult(@NonNull Exchange exchange) {
-        String requestId = exchange.getIn().getHeader("requestId", String.class);
+        String userId = exchange.getProperty("userId", String.class);
+        String requestId = extractRequestId(exchange);
 
         if (requestId == null) {
-            requestId = exchange.getProperty("requestId", String.class);
+            respond(exchange, 400, Map.of("error", "Missing requestId"));
+            return;
         }
 
-        if (requestId == null) {
-            String path = exchange.getIn().getHeader(Exchange.HTTP_PATH, String.class);
-            if (path != null) {
-                String[] parts = path.split("/");
-                if (parts.length > 0) {
-                    requestId = parts[parts.length - 1];
-                }
-            }
-        }
-
-        log.info("Getting result for requestId: {}", requestId);
+        log.debug("Getting result for requestId: {}, userId: {}", requestId, userId);
         Map<String, Object> result = redisService.getResult(requestId);
-        log.info("Retrieved result: {}", result);
+        log.debug("Retrieved result for requestId: {}, status: {}", requestId,
+                result != null ? result.get("status") : "null");
 
-        Optional.ofNullable(result)
-                .ifPresentOrElse(exchangeResult -> {
-                    try {
-                        exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 200);
-                        exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json");
-                        String jsonResponse = objectMapper.writeValueAsString(exchangeResult);
-                        exchange.getMessage().setBody(jsonResponse);
-                    } catch (Exception e) {
-                        log.error("Failed to serialize response", e);
-                        exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 500);
-                        exchange.getMessage().setBody("{\"error\":\"Internal server error\"}");
-                    }
-                }, () -> {
-                    exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 404);
-                    exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json");
-                    exchange.getMessage().setBody("{\"error\":\"Request not found\"}");
-                });
+        if (result == null) {
+            respond(exchange, 404, Map.of("error", "Request not found"));
+            return;
+        }
+
+        Object owner = result.get("user_id");
+        if (owner != null && !owner.equals(userId)) {
+            respond(exchange, 404, Map.of("error", "Request not found"));
+            return;
+        }
+
+        result.put("request_id", requestId);
+        respond(exchange, 200, result);
+    }
+
+    private String extractRequestId(@NonNull Exchange exchange) {
+        String id = exchange.getIn().getHeader("requestId", String.class);
+        if (id != null) return id;
+        id = exchange.getProperty("requestId", String.class);
+        if (id != null) return id;
+        String path = exchange.getIn().getHeader(Exchange.HTTP_PATH, String.class);
+        if (path != null) {
+            String[] parts = path.split("/");
+            return parts[parts.length - 1];
+        }
+        return null;
+    }
+
+    private void respond(@NonNull Exchange exchange, int status, Object body) {
+        try {
+            exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, status);
+            exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
+            exchange.getMessage().setBody(objectMapper.writeValueAsString(body));
+        } catch (Exception e) {
+            log.error("Failed to serialize response", e);
+            exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 500);
+            exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
+            exchange.getMessage().setBody("{\"error\":\"Internal server error\"}");
+        }
     }
 
     @Operation(
@@ -379,18 +436,9 @@ public class MainRoute extends RouteBuilder {
                     schema = @Schema(
                             type = "object",
                             properties = {
-                                    @StringToClassMapItem(
-                                            key = "text",
-                                            value = String.class
-                                    ),
-                                    @StringToClassMapItem(
-                                            key = "voice",
-                                            value = String.class
-                                    ),
-                                    @StringToClassMapItem(
-                                            key = "language",
-                                            value = String.class
-                                    )
+                                    @StringToClassMapItem(key = "text", value = String.class),
+                                    @StringToClassMapItem(key = "voice", value = String.class),
+                                    @StringToClassMapItem(key = "language", value = String.class)
                             },
                             requiredProperties = {"userId"}
                     ),
@@ -416,7 +464,7 @@ public class MainRoute extends RouteBuilder {
                                     name = "language",
                                     schema = @Schema(
                                             type = "string",
-                                            description = "Language code for transcription (default: ru). Supported: ru, en, etc.",
+                                            description = "Language code (short form like 'ru', 'en' will be normalized to 'ru-RU', 'en-US'). Supported: ru, en, de, fr, es, it, ja, ko, pt, zh, uk, pl, nl, tr, hi, ca, cs, fa, gu, kk, te, uz, vi.",
                                             example = "ru",
                                             defaultValue = "ru"
                                     )
@@ -450,14 +498,8 @@ public class MainRoute extends RouteBuilder {
                             schema = @Schema(
                                     type = "object",
                                     properties = {
-                                            @StringToClassMapItem(
-                                                    key = "request_id",
-                                                    value = UUID.class
-                                            ),
-                                            @StringToClassMapItem(
-                                                    key = "status",
-                                                    value = String.class
-                                            )
+                                            @StringToClassMapItem(key = "request_id", value = UUID.class),
+                                            @StringToClassMapItem(key = "status", value = String.class)
                                     }
                             ),
                             examples = @ExampleObject(value = "{\"request_id\":\"abc123\",\"status\":\"pending\"}")
@@ -471,10 +513,7 @@ public class MainRoute extends RouteBuilder {
                             schema = @Schema(
                                     type = "object",
                                     properties = {
-                                            @StringToClassMapItem(
-                                                    key = "error",
-                                                    value = String.class
-                                            )
+                                            @StringToClassMapItem(key = "error", value = String.class)
                                     }
                             ),
                             examples = {
@@ -497,10 +536,7 @@ public class MainRoute extends RouteBuilder {
                             schema = @Schema(
                                     type = "object",
                                     properties = {
-                                            @StringToClassMapItem(
-                                                    key = "error",
-                                                    value = String.class
-                                            )
+                                            @StringToClassMapItem(key = "error", value = String.class)
                                     }
                             ),
                             examples = @ExampleObject(value = "{\"error\":\"Invalid or missing JWT token\"}")
@@ -519,10 +555,7 @@ public class MainRoute extends RouteBuilder {
                             schema = @Schema(
                                     type = "object",
                                     properties = {
-                                            @StringToClassMapItem(
-                                                    key = "error",
-                                                    value = String.class
-                                            )
+                                            @StringToClassMapItem(key = "error", value = String.class)
                                     }
                             ),
                             examples = @ExampleObject(value = "{\"error\":\"Service temporarily unavailable\"}")
@@ -536,10 +569,7 @@ public class MainRoute extends RouteBuilder {
                             schema = @Schema(
                                     type = "object",
                                     properties = {
-                                            @StringToClassMapItem(
-                                                    key = "error",
-                                                    value = String.class
-                                            )
+                                            @StringToClassMapItem(key = "error", value = String.class)
                                     }
                             ),
                             examples = @ExampleObject(value = "{\"error\":\"Internal server error\"}")
@@ -557,11 +587,13 @@ public class MainRoute extends RouteBuilder {
 
         String text = (String) request.get("text");
         String voice = (String) request.get("voice");
-        String language = (String) request.getOrDefault("language", "ru");
+        String rawLanguage = (String) request.getOrDefault("language", "ru");
+        String transcribeLanguage = normalizeLanguage(rawLanguage);
 
         exchange.setProperty(REQUEST_ID, requestId);
         exchange.setProperty(USER_ID, userId);
-        exchange.setProperty(LANGUAGE, language);
+        exchange.setProperty(LANGUAGE, rawLanguage);
+        exchange.setProperty(TRANSCRIBE_LANGUAGE, transcribeLanguage);
 
         Double lat = exchange.getIn().getHeader("X-Lat", Double.class);
         Double lon = exchange.getIn().getHeader("X-Lon", Double.class);
@@ -576,9 +608,12 @@ public class MainRoute extends RouteBuilder {
         boolean hasVoice = voice != null && !voice.isEmpty();
         boolean hasText = text != null && !text.isEmpty();
 
+        exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 202);
+
         if (hasVoice && !hasText) {
             byte[] audioData = Base64.getDecoder().decode(voice);
             String s3Key = "temp/%s/audio.wav".formatted(requestId);
+            exchange.getMessage().setHeader("CamelAwsS3Key", s3Key);
             exchange.setProperty("s3Key", s3Key);
             exchange.getMessage().setBody(audioData);
         } else if (hasText && !hasVoice) {
@@ -589,7 +624,7 @@ public class MainRoute extends RouteBuilder {
             sqsMessage.put("request_id", requestId);
             sqsMessage.put("text", text);
             sqsMessage.put("user_id", userId);
-            sqsMessage.put("language", language);
+            sqsMessage.put("language", rawLanguage);
 
             Optional.ofNullable(userLocation).ifPresent(loc -> {
                 JsonObject location = new JsonObject();
@@ -618,14 +653,25 @@ public class MainRoute extends RouteBuilder {
     private void startTranscriptionJob(@NonNull Exchange exchange) {
         String requestId = exchange.getProperty(REQUEST_ID, String.class);
         String s3Key = exchange.getProperty("s3Key", String.class);
-        String language = exchange.getProperty(LANGUAGE, String.class);
+        String transcribeLanguage = exchange.getProperty(TRANSCRIBE_LANGUAGE, String.class);
+        if (transcribeLanguage == null) {
+            transcribeLanguage = normalizeLanguage(exchange.getProperty(LANGUAGE, String.class));
+        }
         String jobName = "transcribe-%s-%d".formatted(requestId, System.currentTimeMillis());
+        String mediaUri = "s3://%s/%s".formatted(bucketName, s3Key);
+
+        exchange.getIn().setHeader("CamelAwsTranscribeTranscriptionJobName", jobName);
+        exchange.getIn().setHeader("CamelAwsTranscribeMediaFormat", "wav");
+        exchange.getIn().setHeader("CamelAwsTranscribeMediaUri", mediaUri);
+        exchange.getIn().setHeader("CamelAwsTranscribeLanguageCode", transcribeLanguage);
 
         exchange.getMessage().setHeader("CamelAwsTranscribeTranscriptionJobName", jobName);
         exchange.getMessage().setHeader("CamelAwsTranscribeMediaFormat", "wav");
-        exchange.getMessage().setHeader("CamelAwsTranscribeMediaUri", "s3://%s/%s".formatted(bucketName, s3Key));
-        exchange.getMessage().setHeader("CamelAwsTranscribeLanguageCode", language);
+        exchange.getMessage().setHeader("CamelAwsTranscribeMediaUri", mediaUri);
+        exchange.getMessage().setHeader("CamelAwsTranscribeLanguageCode", transcribeLanguage);
+
         exchange.setProperty("jobName", jobName);
+        log.info("Starting transcription: jobName={}, mediaUri={}, lang={}", jobName, mediaUri, transcribeLanguage);
     }
 
     @Operation(
@@ -641,14 +687,45 @@ public class MainRoute extends RouteBuilder {
         @SuppressWarnings("unchecked")
         Map<String, Double> userLocation = exchange.getProperty("userLocation", Map.class);
 
+        log.info("=== sendToSqs: requestId={}, skipTranscribe={}, s3UploadFailed={}",
+                requestId,
+                exchange.getProperty("skipTranscribe"),
+                exchange.getProperty("s3UploadFailed"));
+
         if (exchange.getProperty("skipTranscribe") == null && exchange.getProperty("s3UploadFailed") == null) {
             redisService.savePending(requestId);
         }
 
-        if (exchange.getProperty("skipTranscribe") == null && exchange.getIn().getBody() != null) {
-            String transcriptText = exchange.getIn().getBody(String.class);
+        if (exchange.getProperty("skipTranscribe") == null) {
+            String jobName = exchange.getProperty("jobName", String.class);
+            if (jobName == null || jobName.isEmpty()) {
+                throw new IllegalStateException("jobName is missing, cannot fetch transcript");
+            }
 
-            if (transcriptText == null || transcriptText.isEmpty()) {
+            String transcriptText;
+            try {
+                transcriptText = downloadTranscriptFromS3(jobName);
+            } catch (Exception e) {
+                log.error("Failed to fetch transcript for request {}, job {}", requestId, jobName, e);
+                redisService.saveError(requestId, "Transcription result unavailable");
+                JsonObject sqsMessage = new JsonObject();
+                sqsMessage.put("request_id", requestId);
+                sqsMessage.put("text", "Transcription failed, please try text input");
+                sqsMessage.put("user_id", userId);
+                sqsMessage.put("language", language);
+                sqsMessage.put("error", "transcript_download_failed");
+
+                try {
+                    exchange.getMessage().setBody(objectMapper.writeValueAsString(sqsMessage));
+                } catch (JsonProcessingException exception) {
+                    log.error("Failed to serialize SQS message", exception);
+                    throw new RuntimeException("Failed to serialize SQS message", exception);
+                }
+                exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
+                return;
+            }
+
+            if (transcriptText.isEmpty()) {
                 log.warn("Empty transcript result for request: {}", requestId);
                 redisService.saveError(requestId, "Empty transcription result");
                 throw new RuntimeException("Empty transcript result");
@@ -674,8 +751,69 @@ public class MainRoute extends RouteBuilder {
                 throw new RuntimeException("Failed to serialize SQS message", e);
             }
             exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
-
         }
+    }
+
+    private String downloadTranscriptFromS3(String jobName) {
+        String key = jobName + ".json";
+        try {
+            byte[] body = s3Client.getObjectAsBytes(
+                    GetObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(key)
+                            .build()
+            ).asByteArray();
+
+            var node = objectMapper.readTree(body);
+            String text = node.path("results")
+                    .path("transcripts")
+                    .path(0)
+                    .path("transcript")
+                    .asText();
+
+            if (text == null || text.isBlank()) {
+                throw new IllegalStateException("Transcript is empty for s3://" + bucketName + "/" + key);
+            }
+            return text;
+        } catch (S3Exception e) {
+            throw new RuntimeException(
+                    "Failed to fetch transcript from s3://" + bucketName + "/" + key
+                            + " (HTTP " + e.statusCode() + ")", e);
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to download transcript from s3://" + bucketName + "/" + key, e);
+        }
+    }
+
+    private static String normalizeLanguage(String lang) {
+        if (lang == null || lang.isBlank()) return "ru-RU";
+        if (lang.contains("-")) return lang;
+        return switch (lang.toLowerCase()) {
+            case "ru" -> "ru-RU";
+            case "en" -> "en-US";
+            case "de" -> "de-DE";
+            case "fr" -> "fr-FR";
+            case "es" -> "es-ES";
+            case "it" -> "it-IT";
+            case "ja" -> "ja-JP";
+            case "ko" -> "ko-KR";
+            case "pt" -> "pt-BR";
+            case "zh" -> "zh-CN";
+            case "uk" -> "uk-UA";
+            case "pl" -> "pl-PL";
+            case "nl" -> "nl-NL";
+            case "tr" -> "tr-TR";
+            case "hi" -> "hi-IN";
+            case "ca" -> "ca-ES";
+            case "cs" -> "cs-CZ";
+            case "fa" -> "fa-IR";
+            case "gu" -> "gu-IN";
+            case "kk" -> "kk-KZ";
+            case "te" -> "te-IN";
+            case "uz" -> "uz-UZ";
+            case "vi" -> "vi-VN";
+            default -> lang + "-" + lang.toUpperCase();
+        };
     }
 
     private void sendResponse(@NonNull Exchange exchange) {
@@ -685,6 +823,7 @@ public class MainRoute extends RouteBuilder {
         response.put("status", "pending");
 
         exchange.getMessage().setBody(response);
-        exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json");
+        exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "application/json; charset=UTF-8");
+        exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 202);
     }
 }

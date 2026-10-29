@@ -38,7 +38,9 @@ services:
       - "8081:8081"
 
   localstack:
-    image: localstack/localstack:4.12
+    build:
+      context: ./localstack
+      dockerfile: Dockerfile
     ports:
       - "4566:4566"
     environment:
@@ -46,6 +48,7 @@ services:
       AWS_DEFAULT_REGION: us-east-1
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
+      DEBUG: 1
     volumes:
       - localstack_data:/var/lib/localstack
       - ./localstack:/etc/localstack/init/ready.d

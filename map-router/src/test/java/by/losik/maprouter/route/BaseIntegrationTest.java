@@ -30,13 +30,12 @@ public abstract class BaseIntegrationTest {
 
     @Container
     protected static final LocalStackContainer localstack = new LocalStackContainer(
-            DockerImageName.parse("localstack/localstack:3.5")
+            DockerImageName.parse("localstack/localstack:4.12")
     )
-            .withServices(SQS, S3)
             .withEnv("AWS_ACCESS_KEY_ID", "test")
             .withEnv("AWS_SECRET_ACCESS_KEY", "test")
             .withEnv("AWS_DEFAULT_REGION", "us-east-1")
-            .withEnv("SERVICES", "sqs,s3")
+            .withEnv("SERVICES", "sqs,s3,transcribe")
             .waitingFor(Wait.forHttp("/_localstack/health")
                     .forPort(4566)
                     .forStatusCode(200)
@@ -104,19 +103,26 @@ public abstract class BaseIntegrationTest {
             int redisPort = redis.getFirstMappedPort();
             String sqsEndpoint = localstack.getEndpointOverride(SQS).toString();
             String s3Endpoint = localstack.getEndpointOverride(S3).toString();
+            String transcribeEndpoint = "http://" + localstack.getHost()
+                    + ":" + localstack.getMappedPort(4566);
 
             TestPropertyValues.of(
                     "aws.endpoint=" + sqsEndpoint,
                     "aws.region=us-east-1",
                     "aws.access-key=test",
                     "aws.secret-key=test",
+                    "transcribe.poll.interval-ms=1000",
+                    "transcribe.poll.max-attempts=120",
 
+                    "camel.component.aws2-transcribe.access-key=test",
+                    "camel.component.aws2-transcribe.secret-key=test",
+                    "camel.component.aws2-transcribe.region=us-east-1",
                     "camel.component.aws2-sqs.override-endpoint=true",
                     "camel.component.aws2-sqs.uri-endpoint-override=" + sqsEndpoint,
                     "camel.component.aws2-s3.override-endpoint=true",
                     "camel.component.aws2-s3.uri-endpoint-override=" + s3Endpoint,
                     "camel.component.aws2-transcribe.override-endpoint=true",
-                    "camel.component.aws2-transcribe.uri-endpoint-override=" + sqsEndpoint,
+                    "camel.component.aws2-transcribe.uri-endpoint-override=" + transcribeEndpoint,
 
                     "spring.data.redis.host=" + redisHost,
                     "spring.data.redis.port=" + redisPort,

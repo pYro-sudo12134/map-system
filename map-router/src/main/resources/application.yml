@@ -46,8 +46,8 @@ logging:
   level:
     by.losik: INFO
     org.springframework.web: INFO
-    org.apache.camel: INFO
-    org.apache.camel.component.servlet: INFO
+    org.apache.camel: WARN
+    org.apache.camel.component.servlet: WARN
 
 jwt:
   secret: ${JWT_SECRET:defaultSecretKeyForDevOnly}
