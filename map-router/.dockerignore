@@ -1,2 +1,3 @@
 src/main/java/resources/test.wav
-src/main/java/resources
+src/main/java/resources/static
+src/main/java/resources/request.json

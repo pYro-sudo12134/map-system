@@ -73,3 +73,4 @@ handler
 !helm/mq/localstack
 !kubernetes/mq/localstack
 .helmwave
+map-router/src/main/resources/request.json
